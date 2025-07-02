@@ -5,12 +5,32 @@ import 'auth_models.dart';
 import '../security/input_validator.dart';
 import '../../services/azure_cli/platform_azure_cli_service.dart';
 
+class DeviceCodeInfo {
+  final String deviceCode;
+  final String userCode;
+  final String verificationUrl;
+  final String message;
+  final int expiresIn;
+  final int interval;
+
+  DeviceCodeInfo({
+    required this.deviceCode,
+    required this.userCode,
+    required this.verificationUrl,
+    required this.message,
+    required this.expiresIn,
+    required this.interval,
+  });
+}
+
 class AzureCliAuthService {
   final UnifiedAzureCliService _cliService;
   final StreamController<AuthState> _authStateController = StreamController<AuthState>.broadcast();
+  final StreamController<DeviceCodeInfo?> _deviceCodeController = StreamController<DeviceCodeInfo?>.broadcast();
   
   UserInfo? _currentUser;
   Timer? _sessionCheckTimer;
+  DeviceCodeInfo? _currentDeviceCode;
   
   AzureCliAuthService(this._cliService) {
     _initializeAuth();
@@ -18,10 +38,12 @@ class AzureCliAuthService {
 
   // Streams
   Stream<AuthState> get authStateStream => _authStateController.stream;
+  Stream<DeviceCodeInfo?> get deviceCodeStream => _deviceCodeController.stream;
   
   // Getters
   UserInfo? get currentUser => _currentUser;
   bool get isAuthenticated => _currentUser != null;
+  DeviceCodeInfo? get currentDeviceCode => _currentDeviceCode;
 
   /// Initializes authentication state by checking existing Azure CLI session
   Future<void> _initializeAuth() async {
@@ -51,21 +73,35 @@ class AzureCliAuthService {
     }
   }
 
-  /// Performs Azure CLI login with interactive authentication
+  /// Performs Azure CLI login with device code authentication
   Future<void> login() async {
     try {
       _authStateController.add(AuthState.loading);
-      AppLogger.info('Starting Azure CLI authentication');
+      AppLogger.info('Starting Azure CLI device code authentication');
       
-      // Execute az login with device code flow for better UX
-      final loginResult = await _cliService.executeCommand(
-        'az login --use-device-code',
-        timeout: const Duration(minutes: 5),
+      // First, initiate device code flow
+      final deviceCodeResult = await _cliService.executeCommand(
+        'az login --use-device-code --output json',
+        timeout: const Duration(minutes: 10),
       );
       
-      if (!loginResult.success) {
-        throw Exception('Azure CLI login failed: ${loginResult.error}');
+      if (!deviceCodeResult.success) {
+        // Parse device code information from the output
+        final deviceCodeInfo = _parseDeviceCodeFromOutput(deviceCodeResult.output);
+        if (deviceCodeInfo != null) {
+          _currentDeviceCode = deviceCodeInfo;
+          _deviceCodeController.add(deviceCodeInfo);
+          
+          // Wait for user to complete authentication
+          await _waitForDeviceCodeAuthentication();
+        } else {
+          throw Exception('Failed to get device code: ${deviceCodeResult.error}');
+        }
       }
+      
+      // Clear device code info
+      _currentDeviceCode = null;
+      _deviceCodeController.add(null);
       
       // Load user information after successful login
       await _loadCurrentUser();
@@ -80,10 +116,12 @@ class AzureCliAuthService {
       _setupSessionCheck();
       _authStateController.add(AuthState.authenticated);
       
-      AppLogger.authEvent('User logged in via Azure CLI', _currentUser!.id);
+      AppLogger.authEvent('User logged in via Azure CLI device code', _currentUser!.id);
       
     } catch (e, stackTrace) {
-      AppLogger.error('Azure CLI login failed', e, stackTrace);
+      AppLogger.error('Azure CLI device code login failed', e, stackTrace);
+      _currentDeviceCode = null;
+      _deviceCodeController.add(null);
       _authStateController.add(AuthState.error);
       rethrow;
     }
@@ -377,9 +415,85 @@ class AzureCliAuthService {
     }
   }
 
+  /// Parses device code information from Azure CLI output
+  DeviceCodeInfo? _parseDeviceCodeFromOutput(String output) {
+    try {
+      // Look for device code pattern in output
+      final lines = output.split('\n');
+      String? userCode;
+      String? verificationUrl;
+      String? message;
+      
+      for (final line in lines) {
+        if (line.contains('To sign in, use a web browser to open the page')) {
+          // Extract URL from the line
+          final urlMatch = RegExp(r'https://[^\s]+').firstMatch(line);
+          if (urlMatch != null) {
+            verificationUrl = urlMatch.group(0);
+          }
+        } else if (line.contains('and enter the code')) {
+          // Extract user code
+          final codeMatch = RegExp(r'code\s+([A-Z0-9]+)').firstMatch(line);
+          if (codeMatch != null) {
+            userCode = codeMatch.group(1);
+          }
+        }
+      }
+      
+      // Also try to find complete message
+      if (output.contains('To sign in')) {
+        final messageStart = output.indexOf('To sign in');
+        final messageEnd = output.indexOf('\n', messageStart + 100);
+        if (messageEnd > messageStart) {
+          message = output.substring(messageStart, messageEnd).trim();
+        }
+      }
+      
+      if (verificationUrl != null && userCode != null) {
+        return DeviceCodeInfo(
+          deviceCode: '',
+          userCode: userCode,
+          verificationUrl: verificationUrl,
+          message: message ?? 'Please complete authentication in your browser',
+          expiresIn: 900, // 15 minutes default
+          interval: 5, // 5 seconds default
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Failed to parse device code info', e);
+    }
+    
+    return null;
+  }
+  
+  /// Waits for device code authentication to complete
+  Future<void> _waitForDeviceCodeAuthentication() async {
+    final maxAttempts = 180; // 15 minutes with 5-second intervals
+    int attempts = 0;
+    
+    while (attempts < maxAttempts) {
+      await Future.delayed(const Duration(seconds: 5));
+      attempts++;
+      
+      try {
+        // Check if authentication is complete
+        final result = await _cliService.executeCommand('az account show');
+        if (result.success) {
+          // Authentication successful
+          return;
+        }
+      } catch (e) {
+        // Continue waiting
+      }
+    }
+    
+    throw Exception('Device code authentication timed out');
+  }
+
   /// Disposes resources
   void dispose() {
     _sessionCheckTimer?.cancel();
     _authStateController.close();
+    _deviceCodeController.close();
   }
 }

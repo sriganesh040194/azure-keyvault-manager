@@ -78,7 +78,7 @@ class UnifiedAzureCliService {
       timeout: timeout,
     );
 
-    if (Platform.isMacOS && _service is MacOSAzureCliService) {
+    if (!kIsWeb && Platform.isMacOS && _service is MacOSAzureCliService) {
       return UnifiedAzureCliResult.fromMacOS(result);
     } else {
       return UnifiedAzureCliResult.fromStandard(result);
@@ -87,7 +87,7 @@ class UnifiedAzureCliService {
 
   /// Checks if Azure CLI is available on this platform
   Future<bool> isAzureCliAvailable() async {
-    if (_service is MacOSAzureCliService) {
+    if (!kIsWeb && _service is MacOSAzureCliService) {
       return await (_service as MacOSAzureCliService).isAzureCliAvailable();
     } else if (_service is AzureCliService) {
       // For standard service, try a simple version check
@@ -99,7 +99,7 @@ class UnifiedAzureCliService {
 
   /// Gets Azure CLI version information
   Future<String?> getVersion() async {
-    if (_service is MacOSAzureCliService) {
+    if (!kIsWeb && _service is MacOSAzureCliService) {
       return await (_service as MacOSAzureCliService).getVersion();
     } else {
       final result = await executeCommand('az --version');
@@ -117,7 +117,7 @@ class UnifiedAzureCliService {
 
   /// Checks if user is logged in to Azure CLI
   Future<bool> isLoggedIn() async {
-    if (_service is MacOSAzureCliService) {
+    if (!kIsWeb && _service is MacOSAzureCliService) {
       return await (_service as MacOSAzureCliService).isLoggedIn();
     } else {
       final result = await executeCommand('az account show');

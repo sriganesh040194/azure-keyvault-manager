@@ -220,6 +220,9 @@ class AppIcons {
   static const IconData account = Symbols.account_circle;
   static const IconData login = Symbols.login;
   static const IconData terminal = Symbols.terminal;
+  static const IconData link = Symbols.link;
+  static const IconData openInNew = Symbols.open_in_new;
+  static const IconData timer = Symbols.timer;
 }
 
 class AppSpacing {

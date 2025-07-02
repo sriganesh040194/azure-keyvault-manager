@@ -23,6 +23,9 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
   List<KeyVaultInfo>? _keyVaults;
   bool _isLoading = true;
   String? _error;
+  List<Map<String, dynamic>>? _subscriptions;
+  Map<String, dynamic>? _currentSubscription;
+  bool _isLoadingSubscriptions = false;
 
   final List<String> _tabTitles = [
     'Overview',
@@ -45,7 +48,47 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
   @override
   void initState() {
     super.initState();
-    _loadKeyVaults();
+    _loadSubscriptions();
+  }
+
+  Future<void> _loadSubscriptions() async {
+    try {
+      setState(() {
+        _isLoadingSubscriptions = true;
+        _error = null;
+      });
+
+      // Load subscriptions and current subscription in parallel
+      final results = await Future.wait([
+        widget.authService.getSubscriptions(),
+        widget.authService.getCurrentSubscription(),
+      ]);
+      
+      final subscriptions = results[0] as List<Map<String, dynamic>>;
+      final currentSub = results[1] as Map<String, dynamic>?;
+      
+      if (mounted) {
+        setState(() {
+          _subscriptions = subscriptions;
+          _currentSubscription = currentSub;
+          _isLoadingSubscriptions = false;
+        });
+        
+        // Load Key Vaults after subscription info is loaded
+        _loadKeyVaults();
+      }
+      
+      AppLogger.info('Loaded ${subscriptions.length} subscriptions');
+    } catch (e) {
+      AppLogger.error('Failed to load subscriptions', e);
+      if (mounted) {
+        setState(() {
+          _error = e.toString();
+          _isLoadingSubscriptions = false;
+          _isLoading = false;
+        });
+      }
+    }
   }
 
   Future<void> _loadKeyVaults() async {
@@ -101,7 +144,126 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
   }
 
   Future<void> _handleRefresh() async {
-    await _loadKeyVaults();
+    await _loadSubscriptions();
+  }
+  
+  void _showSubscriptionDetails() {
+    if (_currentSubscription == null) return;
+    
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Subscription Details'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDetailRow('Name', _currentSubscription!['name'] ?? 'Unknown'),
+            _buildDetailRow('ID', _currentSubscription!['id'] ?? 'Unknown'),
+            _buildDetailRow('State', _currentSubscription!['state'] ?? 'Unknown'),
+            _buildDetailRow('Tenant ID', _currentSubscription!['tenantId'] ?? 'Unknown'),
+            if (_currentSubscription!['isDefault'] == true)
+              const Padding(
+                padding: EdgeInsets.only(top: 8),
+                child: Row(
+                  children: [
+                    Icon(AppIcons.success, color: Colors.green, size: 16),
+                    SizedBox(width: 8),
+                    Text('Default Subscription', style: TextStyle(color: Colors.green)),
+                  ],
+                ),
+              ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(context).pop(),
+            child: const Text('Close'),
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Widget _buildDetailRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 80,
+            child: Text(
+              '$label:',
+              style: const TextStyle(fontWeight: FontWeight.w600),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: const TextStyle(fontFamily: 'monospace'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _handleSubscriptionChange(String subscriptionId) async {
+    try {
+      setState(() {
+        _isLoading = true;
+      });
+      
+      final success = await widget.authService.setSubscription(subscriptionId);
+      if (success) {
+        // Reload current subscription and Key Vaults
+        final currentSub = await widget.authService.getCurrentSubscription();
+        
+        if (mounted) {
+          setState(() {
+            _currentSubscription = currentSub;
+          });
+          
+          // Reload Key Vaults for the new subscription
+          await _loadKeyVaults();
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Subscription changed successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          setState(() {
+            _isLoading = false;
+          });
+          
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Failed to change subscription'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Failed to change subscription', e);
+      if (mounted) {
+        setState(() {
+          _isLoading = false;
+        });
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error changing subscription: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
   }
 
   Widget _buildAppBar() {
@@ -126,6 +288,12 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         ],
       ),
       actions: [
+        // Subscription selector
+        if (_subscriptions != null && _subscriptions!.isNotEmpty)
+          _buildSubscriptionSelector(),
+        
+        const SizedBox(width: AppSpacing.md),
+        
         // Refresh button
         IconButton(
           onPressed: _handleRefresh,
@@ -205,8 +373,88 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
     );
   }
 
+  Widget _buildSubscriptionSelector() {
+    if (_subscriptions == null || _subscriptions!.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    
+    return Container(
+      constraints: const BoxConstraints(maxWidth: 300),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          value: _currentSubscription?['id'],
+          hint: const Text('Select Subscription'),
+          isExpanded: true,
+          items: _subscriptions!.map((subscription) {
+            final name = subscription['name'] ?? 'Unknown';
+            final id = subscription['id'] ?? '';
+            final isDefault = subscription['isDefault'] == true;
+            
+            return DropdownMenuItem<String>(
+              value: id,
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          name,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600,
+                            fontSize: 14,
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        Text(
+                          id.split('/').last,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[600],
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (isDefault)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 6,
+                        vertical: 2,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.green,
+                        borderRadius: BorderRadius.circular(4),
+                      ),
+                      child: const Text(
+                        'Default',
+                        style: TextStyle(
+                          color: Colors.white,
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+            );
+          }).toList(),
+          onChanged: (String? newValue) {
+            if (newValue != null && newValue != _currentSubscription?['id']) {
+              _handleSubscriptionChange(newValue);
+            }
+          },
+          dropdownColor: Theme.of(context).cardColor,
+          style: Theme.of(context).textTheme.bodyMedium,
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent() {
-    if (_isLoading) {
+    if (_isLoading || _isLoadingSubscriptions) {
       return const Center(
         child: CircularProgressIndicator(),
       );
@@ -301,10 +549,12 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
               ),
               _buildStatCard(
                 'Subscription',
-                widget.authService.currentUser?.tenantId.substring(0, 8) ?? 'N/A',
+                _currentSubscription != null 
+                    ? (_currentSubscription!['name'] as String? ?? 'Unknown').split(' ').first
+                    : 'N/A',
                 AppIcons.account,
                 Colors.blue,
-                null,
+                () => _showSubscriptionDetails(),
               ),
             ],
           ),

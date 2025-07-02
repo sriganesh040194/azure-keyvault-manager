@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/auth/azure_cli_auth_service.dart';
 import '../../core/logging/app_logger.dart';
 import '../../shared/widgets/app_theme.dart';
@@ -20,12 +22,24 @@ class _LoginScreenState extends State<LoginScreen> {
   bool _isLoading = false;
   String? _errorMessage;
   Map<String, dynamic>? _authStatus;
+  DeviceCodeInfo? _deviceCodeInfo;
 
   @override
   void initState() {
     super.initState();
     _errorMessage = widget.error;
     _checkInitialStatus();
+    _listenToDeviceCode();
+  }
+  
+  void _listenToDeviceCode() {
+    widget.authService.deviceCodeStream.listen((deviceCode) {
+      if (mounted) {
+        setState(() {
+          _deviceCodeInfo = deviceCode;
+        });
+      }
+    });
   }
 
   Future<void> _checkInitialStatus() async {
@@ -68,6 +82,16 @@ class _LoginScreenState extends State<LoginScreen> {
     }
   }
 
+  String _getLoginButtonText() {
+    if (_deviceCodeInfo != null) {
+      return 'Waiting for authentication...';
+    } else if (_isLoading) {
+      return 'Starting authentication...';
+    } else {
+      return 'Sign in with Azure CLI';
+    }
+  }
+
   String _getErrorMessage(String error) {
     if (error.contains('Azure CLI')) {
       return 'Azure CLI not found. Please install Azure CLI and try again.';
@@ -75,8 +99,203 @@ class _LoginScreenState extends State<LoginScreen> {
       return 'Login failed. Please check your credentials and try again.';
     } else if (error.contains('permissions')) {
       return 'Insufficient permissions. Please contact your administrator.';
+    } else if (error.contains('timed out')) {
+      return 'Authentication timed out. Please try again.';
     } else {
       return 'Authentication failed. Please try again.';
+    }
+  }
+
+  Widget _buildDeviceCodeSection() {
+    final deviceCode = _deviceCodeInfo!;
+    
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: Colors.blue[50],
+        borderRadius: BorderRadius.circular(AppBorderRadius.lg),
+        border: Border.all(
+          color: Colors.blue[200]!,
+          width: 2,
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                AppIcons.info,
+                color: Colors.blue[700],
+                size: 24,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'Complete Authentication',
+                style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Colors.blue[700],
+                  fontWeight: FontWeight.bold,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: AppSpacing.md),
+          
+          Text(
+            '1. Click the link below to open your browser:',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          
+          InkWell(
+            onTap: () => _openVerificationUrl(deviceCode.verificationUrl),
+            child: Container(
+              padding: const EdgeInsets.all(AppSpacing.md),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                border: Border.all(color: Colors.blue[300]!),
+              ),
+              child: Row(
+                children: [
+                  Icon(
+                    AppIcons.link,
+                    color: Colors.blue[600],
+                    size: 20,
+                  ),
+                  const SizedBox(width: AppSpacing.sm),
+                  Expanded(
+                    child: Text(
+                      deviceCode.verificationUrl,
+                      style: TextStyle(
+                        color: Colors.blue[600],
+                        decoration: TextDecoration.underline,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                  ),
+                  Icon(
+                    AppIcons.openInNew,
+                    color: Colors.blue[600],
+                    size: 16,
+                  ),
+                ],
+              ),
+            ),
+          ),
+          
+          const SizedBox(height: AppSpacing.md),
+          
+          Text(
+            '2. Enter this code when prompted:',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.sm),
+          
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(AppSpacing.md),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(AppBorderRadius.md),
+              border: Border.all(color: Colors.blue[300]!),
+            ),
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  deviceCode.userCode,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontFamily: 'monospace',
+                    fontWeight: FontWeight.bold,
+                    color: Colors.blue[700],
+                    letterSpacing: 2,
+                  ),
+                ),
+                IconButton(
+                  onPressed: () => _copyToClipboard(deviceCode.userCode),
+                  icon: const Icon(AppIcons.copy),
+                  tooltip: 'Copy code',
+                ),
+              ],
+            ),
+          ),
+          
+          const SizedBox(height: AppSpacing.md),
+          
+          Row(
+            children: [
+              Icon(
+                AppIcons.timer,
+                color: Colors.orange[600],
+                size: 16,
+              ),
+              const SizedBox(width: AppSpacing.sm),
+              Text(
+                'Code expires in ${(deviceCode.expiresIn / 60).round()} minutes',
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.orange[600],
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: AppSpacing.sm),
+          
+          const LinearProgressIndicator(
+            backgroundColor: Colors.white,
+          ),
+        ],
+      ),
+    );
+  }
+  
+  Future<void> _openVerificationUrl(String url) async {
+    try {
+      final uri = Uri.parse(url);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri, mode: LaunchMode.externalApplication);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Could not open browser. Please copy the URL: $url'),
+              duration: const Duration(seconds: 5),
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      AppLogger.error('Failed to open verification URL', e);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Failed to open browser. Please copy the URL manually.'),
+          ),
+        );
+      }
+    }
+  }
+  
+  Future<void> _copyToClipboard(String text) async {
+    try {
+      await Clipboard.setData(ClipboardData(text: text));
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Code copied to clipboard'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Failed to copy to clipboard', e);
     }
   }
 
@@ -163,13 +382,19 @@ class _LoginScreenState extends State<LoginScreen> {
                 ),
               ),
 
+            // Device Code Section
+            if (_deviceCodeInfo != null) ...[
+              _buildDeviceCodeSection(),
+              const SizedBox(height: AppSpacing.lg),
+            ],
+
             // Login Button or Status
             if (_authStatus?['isAuthenticated'] != true) ...[
               SizedBox(
                 width: double.infinity,
                 height: 48,
                 child: FilledButton.icon(
-                  onPressed: _isLoading ? null : _handleLogin,
+                  onPressed: (_isLoading || _deviceCodeInfo != null) ? null : _handleLogin,
                   icon: _isLoading
                       ? const SizedBox(
                           width: 20,
@@ -180,12 +405,14 @@ class _LoginScreenState extends State<LoginScreen> {
                           ),
                         )
                       : const Icon(AppIcons.login),
-                  label: Text(_isLoading ? 'Authenticating...' : 'Sign in with Azure CLI'),
+                  label: Text(_getLoginButtonText()),
                 ),
               ),
               const SizedBox(height: AppSpacing.md),
               Text(
-                'Uses your existing Azure CLI authentication (az login)',
+                _deviceCodeInfo != null 
+                    ? 'Complete authentication in your browser to continue'
+                    : 'Uses Azure CLI device code authentication',
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
                   color: Colors.grey[600],
                 ),

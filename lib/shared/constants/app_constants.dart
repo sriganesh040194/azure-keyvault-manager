@@ -33,6 +33,7 @@ class AppConstants {
     'az extension list',
 
     // Key Vault operations
+    'az keyvault',
     'az keyvault list',
     'az keyvault create',
     'az keyvault delete',
