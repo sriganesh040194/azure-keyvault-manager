@@ -225,6 +225,8 @@ class AppIcons {
   static const IconData timer = Symbols.timer;
   static const IconData calendar = Symbols.calendar_month;
   static const IconData lock = Symbols.lock;
+  static const IconData clock = Symbols.schedule;
+  static const IconData activity = Symbols.trending_up;
 }
 
 class AppSpacing {

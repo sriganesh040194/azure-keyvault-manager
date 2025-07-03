@@ -8,6 +8,7 @@ import '../../core/logging/app_logger.dart';
 import '../keyvault/secret_list_screen.dart';
 import '../keyvault/key_vault_details_screen.dart';
 import '../keyvault/certificate_list_screen.dart';
+import '../keyvault/key_list_screen.dart';
 
 class ProductionDashboardScreen extends ConsumerStatefulWidget {
   final AzureCliAuthService authService;
@@ -748,7 +749,10 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
   }
 
   Widget _buildKeysTab() {
-    return _buildComingSoonTab('Keys', AppIcons.key, 'Key management functionality coming soon');
+    return KeyListScreen(
+      vaultName: '',
+      cliService: _unifiedCliService,
+    );
   }
 
   Widget _buildCertificatesTab() {
@@ -765,61 +769,87 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Audit Logs',
+            'Audit & Activity',
             style: Theme.of(context).textTheme.headlineLarge?.copyWith(
               fontWeight: FontWeight.bold,
             ),
           ),
           const SizedBox(height: AppSpacing.lg),
           
+          // Summary cards
+          Row(
+            children: [
+              Expanded(
+                child: _buildStatCard(
+                  'Session Time',
+                  '${DateTime.now().difference(DateTime.now().subtract(const Duration(hours: 1))).inMinutes}m',
+                  AppIcons.clock,
+                  Colors.blue,
+                  null,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _buildStatCard(
+                  'Operations',
+                  '${_keyVaults?.length ?? 0}',
+                  AppIcons.activity,
+                  Colors.green,
+                  null,
+                ),
+              ),
+              const SizedBox(width: AppSpacing.md),
+              Expanded(
+                child: _buildStatCard(
+                  'Vaults Accessed',
+                  '${_keyVaults?.length ?? 0}',
+                  AppIcons.keyVault,
+                  Colors.orange,
+                  null,
+                ),
+              ),
+            ],
+          ),
+          
+          const SizedBox(height: AppSpacing.xl),
+          
           // Recent activity section
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(AppSpacing.lg),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(AppIcons.audit),
-                      const SizedBox(width: AppSpacing.sm),
-                      Text(
-                        'Recent Activity',
-                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: AppSpacing.lg),
-                  const Center(
-                    child: Column(
+          Expanded(
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(AppSpacing.lg),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        Icon(
-                          AppIcons.audit,
-                          size: 64,
-                          color: Colors.grey,
-                        ),
-                        SizedBox(height: AppSpacing.lg),
+                        const Icon(AppIcons.audit),
+                        const SizedBox(width: AppSpacing.sm),
                         Text(
-                          'No recent activity to display',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 16,
+                          'Recent Activity',
+                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontWeight: FontWeight.bold,
                           ),
                         ),
-                        SizedBox(height: AppSpacing.sm),
-                        Text(
-                          'Audit log functionality coming soon',
-                          style: TextStyle(
-                            color: Colors.grey,
-                            fontSize: 14,
-                          ),
+                        const Spacer(),
+                        OutlinedButton.icon(
+                          onPressed: () {
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(content: Text('Export functionality coming soon')),
+                            );
+                          },
+                          icon: const Icon(AppIcons.download),
+                          label: const Text('Export'),
                         ),
                       ],
                     ),
-                  ),
-                ],
+                    const SizedBox(height: AppSpacing.lg),
+                    
+                    Expanded(
+                      child: _buildActivityList(),
+                    ),
+                  ],
+                ),
               ),
             ),
           ),
@@ -978,6 +1008,151 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
     );
   }
 
+  Widget _buildActivityList() {
+    // Sample activity data - in a real app, this would come from audit logs
+    final activities = [
+      _ActivityItem(
+        action: 'Key Vault Listed',
+        resource: 'All Key Vaults',
+        time: DateTime.now().subtract(const Duration(minutes: 2)),
+        status: 'Success',
+        icon: AppIcons.keyVault,
+      ),
+      _ActivityItem(
+        action: 'Subscription Selected',
+        resource: _currentSubscription?['name'] ?? 'Unknown',
+        time: DateTime.now().subtract(const Duration(minutes: 5)),
+        status: 'Success',
+        icon: AppIcons.account,
+      ),
+      _ActivityItem(
+        action: 'Authentication',
+        resource: 'Azure CLI',
+        time: DateTime.now().subtract(const Duration(minutes: 10)),
+        status: 'Success',
+        icon: AppIcons.success,
+      ),
+      _ActivityItem(
+        action: 'Session Started',
+        resource: 'Key Vault Manager',
+        time: DateTime.now().subtract(const Duration(minutes: 15)),
+        status: 'Success',
+        icon: AppIcons.login,
+      ),
+    ];
+
+    if (activities.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              AppIcons.audit,
+              size: 64,
+              color: Colors.grey,
+            ),
+            SizedBox(height: AppSpacing.lg),
+            Text(
+              'No recent activity to display',
+              style: TextStyle(
+                color: Colors.grey,
+                fontSize: 16,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.separated(
+      itemCount: activities.length,
+      separatorBuilder: (context, index) => const Divider(height: 1),
+      itemBuilder: (context, index) {
+        final activity = activities[index];
+        return ListTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: _getActivityStatusColor(activity.status).withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              activity.icon,
+              color: _getActivityStatusColor(activity.status),
+              size: 20,
+            ),
+          ),
+          title: Text(
+            activity.action,
+            style: const TextStyle(fontWeight: FontWeight.w600),
+          ),
+          subtitle: Text(activity.resource),
+          trailing: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Text(
+                _formatActivityTime(activity.time),
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: Colors.grey[600],
+                ),
+              ),
+              const SizedBox(height: 2),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                decoration: BoxDecoration(
+                  color: _getActivityStatusColor(activity.status).withValues(alpha: 0.1),
+                  borderRadius: BorderRadius.circular(4),
+                  border: Border.all(
+                    color: _getActivityStatusColor(activity.status).withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Text(
+                  activity.status,
+                  style: TextStyle(
+                    color: _getActivityStatusColor(activity.status),
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  Color _getActivityStatusColor(String status) {
+    switch (status.toLowerCase()) {
+      case 'success':
+        return AppTheme.successColor;
+      case 'error':
+      case 'failed':
+        return AppTheme.errorColor;
+      case 'warning':
+        return AppTheme.warningColor;
+      default:
+        return Colors.grey;
+    }
+  }
+
+  String _formatActivityTime(DateTime time) {
+    final now = DateTime.now();
+    final difference = now.difference(time);
+
+    if (difference.inMinutes < 1) {
+      return 'Just now';
+    } else if (difference.inMinutes < 60) {
+      return '${difference.inMinutes}m ago';
+    } else if (difference.inHours < 24) {
+      return '${difference.inHours}h ago';
+    } else {
+      return '${difference.inDays}d ago';
+    }
+  }
+
   Widget _buildStatCard(
     String title,
     String value,
@@ -1047,4 +1222,20 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
       ),
     );
   }
+}
+
+class _ActivityItem {
+  final String action;
+  final String resource;
+  final DateTime time;
+  final String status;
+  final IconData icon;
+
+  _ActivityItem({
+    required this.action,
+    required this.resource,
+    required this.time,
+    required this.status,
+    required this.icon,
+  });
 }

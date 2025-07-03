@@ -4,17 +4,18 @@ import '../../core/logging/app_logger.dart';
 import '../../services/azure_cli/platform_azure_cli_service.dart';
 import '../../services/keyvault/key_service.dart';
 import '../../services/keyvault/key_models.dart';
+import '../../services/keyvault/keyvault_service.dart' show KeyVaultService, KeyVaultInfo;
 import '../../shared/widgets/app_theme.dart';
 import 'key_create_dialog.dart';
 import 'key_details_screen.dart';
 
 class KeyListScreen extends StatefulWidget {
-  final String vaultName;
+  final String? vaultName;
   final UnifiedAzureCliService cliService;
 
   const KeyListScreen({
     super.key,
-    required this.vaultName,
+    this.vaultName,
     required this.cliService,
   });
 
@@ -24,28 +25,75 @@ class KeyListScreen extends StatefulWidget {
 
 class _KeyListScreenState extends State<KeyListScreen> {
   late KeyService _keyService;
+  late KeyVaultService _keyVaultService;
   List<KeyInfo> _keys = [];
+  List<KeyInfo> _filteredKeys = [];
+  List<KeyVaultInfo> _keyVaults = [];
   bool _isLoading = false;
+  bool _isLoadingKeyVaults = false;
   String? _errorMessage;
-  String _searchQuery = '';
+  String? _selectedVaultName;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _keyService = KeyService(widget.cliService);
-    _loadKeys();
+    _keyVaultService = KeyVaultService(widget.cliService);
+    _searchController.addListener(_filterKeys);
+    _selectedVaultName = widget.vaultName;
+    _loadKeyVaults();
+    if (_selectedVaultName != null && _selectedVaultName!.isNotEmpty) {
+      _loadKeys();
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadKeyVaults() async {
+    setState(() {
+      _isLoadingKeyVaults = true;
+    });
+
+    try {
+      final keyVaults = await _keyVaultService.listKeyVaults();
+      setState(() {
+        _keyVaults = keyVaults;
+        _isLoadingKeyVaults = false;
+        
+        // If selected vault is no longer available, clear the selection
+        if (_selectedVaultName != null && 
+            !keyVaults.any((vault) => vault.name == _selectedVaultName)) {
+          _selectedVaultName = null;
+          _keys.clear();
+          _filteredKeys.clear();
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingKeyVaults = false;
+      });
+      AppLogger.error('Failed to load key vaults', e);
+    }
   }
 
   Future<void> _loadKeys() async {
+    if (_selectedVaultName == null || _selectedVaultName!.isEmpty) return;
+
     setState(() {
       _isLoading = true;
       _errorMessage = null;
     });
 
     try {
-      final keys = await _keyService.listKeys(widget.vaultName);
+      final keys = await _keyService.listKeys(_selectedVaultName!);
       setState(() {
         _keys = keys;
+        _filteredKeys = keys;
         _isLoading = false;
       });
     } catch (e) {
@@ -55,6 +103,20 @@ class _KeyListScreenState extends State<KeyListScreen> {
       });
       AppLogger.error('Failed to load keys', e);
     }
+  }
+
+  void _filterKeys() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredKeys = _keys;
+      } else {
+        _filteredKeys = _keys.where((key) =>
+            key.name.toLowerCase().contains(query) ||
+            (key.keyType?.toLowerCase().contains(query) ?? false)
+        ).toList();
+      }
+    });
   }
 
   Future<void> _deleteKey(KeyInfo key) async {
@@ -77,14 +139,17 @@ class _KeyListScreenState extends State<KeyListScreen> {
       ),
     );
 
-    if (confirmed == true && mounted) {
+    if (confirmed == true && _selectedVaultName != null) {
       try {
-        await _keyService.deleteKey(widget.vaultName, key.name);
+        await _keyService.deleteKey(_selectedVaultName!, key.name);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Key "${key.name}" deleted successfully')),
+            SnackBar(
+              content: Text('Key "${key.name}" deleted successfully'),
+              backgroundColor: AppTheme.successColor,
+            ),
           );
-          _loadKeys();
+          await _loadKeys();
         }
       } catch (e) {
         if (mounted) {
@@ -100,10 +165,12 @@ class _KeyListScreenState extends State<KeyListScreen> {
   }
 
   Future<void> _createKey() async {
+    if (_selectedVaultName == null) return;
+    
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => KeyCreateDialog(
-        vaultName: widget.vaultName,
+        vaultName: _selectedVaultName!,
         keyService: _keyService,
       ),
     );
@@ -113,70 +180,207 @@ class _KeyListScreenState extends State<KeyListScreen> {
     }
   }
 
-  List<KeyInfo> get _filteredKeys {
-    if (_searchQuery.isEmpty) return _keys;
-    return _keys.where((key) =>
-        key.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-        (key.keyType?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false)
-    ).toList();
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Keys - ${widget.vaultName}'),
-        actions: [
-          IconButton(
-            onPressed: _loadKeys,
-            icon: const Icon(AppIcons.refresh),
-            tooltip: 'Refresh',
+    return Column(
+      children: [
+        _buildHeader(),
+        _buildKeyVaultSelector(),
+        if (_selectedVaultName != null && _selectedVaultName!.isNotEmpty) _buildSearchBar(),
+        Expanded(child: _buildContent()),
+      ],
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
           ),
-          IconButton(
-            onPressed: _createKey,
-            icon: const Icon(AppIcons.add),
-            tooltip: 'Create Key',
-          ),
-        ],
+        ),
       ),
-      body: Column(
+      child: Row(
         children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search keys...',
-                prefixIcon: const Icon(AppIcons.search),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                        icon: const Icon(AppIcons.close),
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppTheme.primaryColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            ),
+            child: const Icon(
+              AppIcons.key,
+              color: AppTheme.primaryColor,
+              size: 20,
             ),
           ),
-
-          // Content
+          const SizedBox(width: AppSpacing.md),
           Expanded(
-            child: _buildContent(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Keys',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  _selectedVaultName ?? 'No Key Vault selected',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: _selectedVaultName != null ? _loadKeys : null,
+            icon: const Icon(AppIcons.refresh),
+            label: const Text('Refresh'),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          FilledButton.icon(
+            onPressed: _selectedVaultName != null ? _createKey : null,
+            icon: const Icon(AppIcons.add),
+            label: const Text('Create Key'),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildKeyVaultSelector() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(AppIcons.keyVault),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: _isLoadingKeyVaults
+                ? const Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: AppSpacing.md),
+                      Text('Loading Key Vaults...'),
+                    ],
+                  )
+                : DropdownButton<String>(
+                    hint: const Text('Select a Key Vault'),
+                    value: _keyVaults.any((vault) => vault.name == _selectedVaultName) 
+                        ? _selectedVaultName 
+                        : null,
+                    isExpanded: true,
+                    items: _keyVaults.map((vault) {
+                      return DropdownMenuItem<String>(
+                        value: vault.name,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(vault.name),
+                            ),
+                            Text(
+                              vault.location,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedVaultName = newValue;
+                        _keys.clear();
+                        _filteredKeys.clear();
+                        _errorMessage = null;
+                      });
+                      if (newValue != null && newValue.isNotEmpty) {
+                        _loadKeys();
+                      }
+                    },
+                  ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          OutlinedButton.icon(
+            onPressed: _loadKeyVaults,
+            icon: const Icon(AppIcons.refresh),
+            label: const Text('Refresh Vaults'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search keys...',
+          prefixIcon: const Icon(AppIcons.search),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                  icon: const Icon(AppIcons.close),
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent() {
+    if (_selectedVaultName == null || _selectedVaultName!.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              AppIcons.keyVault,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Select a Key Vault',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Choose a Key Vault from the dropdown above to view its keys',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_isLoading) {
       return const Center(
         child: Column(
@@ -222,9 +426,7 @@ class _KeyListScreenState extends State<KeyListScreen> {
       );
     }
 
-    final filteredKeys = _filteredKeys;
-
-    if (filteredKeys.isEmpty) {
+    if (_filteredKeys.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -236,19 +438,19 @@ class _KeyListScreenState extends State<KeyListScreen> {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              _searchQuery.isEmpty ? 'No keys found' : 'No keys match your search',
+              _searchController.text.isEmpty ? 'No keys found' : 'No keys match your search',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              _searchQuery.isEmpty
+              _searchController.text.isEmpty
                   ? 'Create your first key to get started'
                   : 'Try a different search term',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.grey[600],
               ),
             ),
-            if (_searchQuery.isEmpty) ...[
+            if (_searchController.text.isEmpty) ...[
               const SizedBox(height: AppSpacing.lg),
               FilledButton.icon(
                 onPressed: _createKey,
@@ -263,9 +465,9 @@ class _KeyListScreenState extends State<KeyListScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(AppSpacing.md),
-      itemCount: filteredKeys.length,
+      itemCount: _filteredKeys.length,
       itemBuilder: (context, index) {
-        final key = filteredKeys[index];
+        final key = _filteredKeys[index];
         return _buildKeyCard(key);
       },
     );
@@ -276,16 +478,18 @@ class _KeyListScreenState extends State<KeyListScreen> {
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: InkWell(
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => KeyDetailsScreen(
-                vaultName: widget.vaultName,
-                keyName: key.name,
-                cliService: widget.cliService,
+          if (_selectedVaultName != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => KeyDetailsScreen(
+                  vaultName: _selectedVaultName!,
+                  keyName: key.name,
+                  cliService: widget.cliService,
+                ),
               ),
-            ),
-          );
+            );
+          }
         },
         borderRadius: BorderRadius.circular(AppBorderRadius.lg),
         child: Padding(

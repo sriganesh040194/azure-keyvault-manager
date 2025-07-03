@@ -4,17 +4,18 @@ import '../../core/logging/app_logger.dart';
 import '../../services/azure_cli/platform_azure_cli_service.dart';
 import '../../services/keyvault/certificate_service.dart';
 import '../../services/keyvault/certificate_models.dart';
+import '../../services/keyvault/keyvault_service.dart' show KeyVaultService, KeyVaultInfo;
 import '../../shared/widgets/app_theme.dart';
 import 'certificate_create_dialog.dart';
 import 'certificate_details_screen.dart';
 
 class CertificateListScreen extends StatefulWidget {
-  final String vaultName;
+  final String? vaultName;
   final UnifiedAzureCliService cliService;
 
   const CertificateListScreen({
     super.key,
-    required this.vaultName,
+    this.vaultName,
     required this.cliService,
   });
 
@@ -24,20 +25,64 @@ class CertificateListScreen extends StatefulWidget {
 
 class _CertificateListScreenState extends State<CertificateListScreen> {
   late CertificateService _certificateService;
+  late KeyVaultService _keyVaultService;
   List<CertificateInfo> _certificates = [];
+  List<CertificateInfo> _filteredCertificates = [];
+  List<KeyVaultInfo> _keyVaults = [];
   bool _isLoading = false;
+  bool _isLoadingKeyVaults = false;
   String? _errorMessage;
-  String _searchQuery = '';
+  String? _selectedVaultName;
+  final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _certificateService = CertificateService(widget.cliService);
-    _loadCertificates();
+    _keyVaultService = KeyVaultService(widget.cliService);
+    _searchController.addListener(_filterCertificates);
+    _selectedVaultName = widget.vaultName;
+    _loadKeyVaults();
+    if (_selectedVaultName != null && _selectedVaultName!.isNotEmpty) {
+      _loadCertificates();
+    }
+  }
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _loadKeyVaults() async {
+    setState(() {
+      _isLoadingKeyVaults = true;
+    });
+
+    try {
+      final keyVaults = await _keyVaultService.listKeyVaults();
+      setState(() {
+        _keyVaults = keyVaults;
+        _isLoadingKeyVaults = false;
+        
+        // If selected vault is no longer available, clear the selection
+        if (_selectedVaultName != null && 
+            !keyVaults.any((vault) => vault.name == _selectedVaultName)) {
+          _selectedVaultName = null;
+          _certificates.clear();
+          _filteredCertificates.clear();
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingKeyVaults = false;
+      });
+      AppLogger.error('Failed to load key vaults', e);
+    }
   }
 
   Future<void> _loadCertificates() async {
-    if (widget.vaultName.isEmpty) return;
+    if (_selectedVaultName == null || _selectedVaultName!.isEmpty) return;
 
     setState(() {
       _isLoading = true;
@@ -45,9 +90,10 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
     });
 
     try {
-      final certificates = await _certificateService.listCertificates(widget.vaultName);
+      final certificates = await _certificateService.listCertificates(_selectedVaultName!);
       setState(() {
         _certificates = certificates;
+        _filteredCertificates = certificates;
         _isLoading = false;
       });
     } catch (e) {
@@ -57,6 +103,21 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
       });
       AppLogger.error('Failed to load certificates', e);
     }
+  }
+
+  void _filterCertificates() {
+    final query = _searchController.text.toLowerCase();
+    setState(() {
+      if (query.isEmpty) {
+        _filteredCertificates = _certificates;
+      } else {
+        _filteredCertificates = _certificates.where((cert) =>
+            cert.name.toLowerCase().contains(query) ||
+            (cert.issuer?.toLowerCase().contains(query) ?? false) ||
+            (cert.subject?.toLowerCase().contains(query) ?? false)
+        ).toList();
+      }
+    });
   }
 
   Future<void> _deleteCertificate(CertificateInfo certificate) async {
@@ -79,14 +140,17 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
       ),
     );
 
-    if (confirmed == true && mounted) {
+    if (confirmed == true && _selectedVaultName != null) {
       try {
-        await _certificateService.deleteCertificate(widget.vaultName, certificate.name);
+        await _certificateService.deleteCertificate(_selectedVaultName!, certificate.name);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Certificate "${certificate.name}" deleted successfully')),
+            SnackBar(
+              content: Text('Certificate "${certificate.name}" deleted successfully'),
+              backgroundColor: AppTheme.successColor,
+            ),
           );
-          _loadCertificates();
+          await _loadCertificates();
         }
       } catch (e) {
         if (mounted) {
@@ -102,10 +166,12 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
   }
 
   Future<void> _createCertificate() async {
+    if (_selectedVaultName == null) return;
+    
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => CertificateCreateDialog(
-        vaultName: widget.vaultName,
+        vaultName: _selectedVaultName!,
         certificateService: _certificateService,
       ),
     );
@@ -115,71 +181,207 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
     }
   }
 
-  List<CertificateInfo> get _filteredCertificates {
-    if (_searchQuery.isEmpty) return _certificates;
-    return _certificates.where((cert) =>
-        cert.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-        (cert.subject?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false) ||
-        (cert.issuer?.toLowerCase().contains(_searchQuery.toLowerCase()) ?? false)
-    ).toList();
-  }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text('Certificates - ${widget.vaultName}'),
-        actions: [
-          IconButton(
-            onPressed: _loadCertificates,
-            icon: const Icon(AppIcons.refresh),
-            tooltip: 'Refresh',
+    return Column(
+      children: [
+        _buildHeader(),
+        _buildKeyVaultSelector(),
+        if (_selectedVaultName != null && _selectedVaultName!.isNotEmpty) _buildSearchBar(),
+        Expanded(child: _buildContent()),
+      ],
+    );
+  }
+
+  Widget _buildHeader() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
           ),
-          IconButton(
-            onPressed: _createCertificate,
-            icon: const Icon(AppIcons.add),
-            tooltip: 'Create Certificate',
-          ),
-        ],
+        ),
       ),
-      body: Column(
+      child: Row(
         children: [
-          // Search Bar
-          Padding(
-            padding: const EdgeInsets.all(AppSpacing.md),
-            child: TextField(
-              decoration: InputDecoration(
-                hintText: 'Search certificates...',
-                prefixIcon: const Icon(AppIcons.search),
-                suffixIcon: _searchQuery.isNotEmpty
-                    ? IconButton(
-                        onPressed: () {
-                          setState(() {
-                            _searchQuery = '';
-                          });
-                        },
-                        icon: const Icon(AppIcons.close),
-                      )
-                    : null,
-              ),
-              onChanged: (value) {
-                setState(() {
-                  _searchQuery = value;
-                });
-              },
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppTheme.warningColor.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(AppBorderRadius.md),
+            ),
+            child: const Icon(
+              AppIcons.certificate,
+              color: AppTheme.warningColor,
+              size: 20,
             ),
           ),
-
-          // Content
+          const SizedBox(width: AppSpacing.md),
           Expanded(
-            child: _buildContent(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Certificates',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                Text(
+                  _selectedVaultName ?? 'No Key Vault selected',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          OutlinedButton.icon(
+            onPressed: _selectedVaultName != null ? _loadCertificates : null,
+            icon: const Icon(AppIcons.refresh),
+            label: const Text('Refresh'),
+          ),
+          const SizedBox(width: AppSpacing.sm),
+          FilledButton.icon(
+            onPressed: _selectedVaultName != null ? _createCertificate : null,
+            icon: const Icon(AppIcons.add),
+            label: const Text('Create Certificate'),
           ),
         ],
       ),
     );
   }
 
+  Widget _buildKeyVaultSelector() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(AppIcons.keyVault),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: _isLoadingKeyVaults
+                ? const Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: AppSpacing.md),
+                      Text('Loading Key Vaults...'),
+                    ],
+                  )
+                : DropdownButton<String>(
+                    hint: const Text('Select a Key Vault'),
+                    value: _keyVaults.any((vault) => vault.name == _selectedVaultName) 
+                        ? _selectedVaultName 
+                        : null,
+                    isExpanded: true,
+                    items: _keyVaults.map((vault) {
+                      return DropdownMenuItem<String>(
+                        value: vault.name,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(vault.name),
+                            ),
+                            Text(
+                              vault.location,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedVaultName = newValue;
+                        _certificates.clear();
+                        _filteredCertificates.clear();
+                        _errorMessage = null;
+                      });
+                      if (newValue != null && newValue.isNotEmpty) {
+                        _loadCertificates();
+                      }
+                    },
+                  ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          OutlinedButton.icon(
+            onPressed: _loadKeyVaults,
+            icon: const Icon(AppIcons.refresh),
+            label: const Text('Refresh Vaults'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSearchBar() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: TextField(
+        controller: _searchController,
+        decoration: InputDecoration(
+          hintText: 'Search certificates...',
+          prefixIcon: const Icon(AppIcons.search),
+          suffixIcon: _searchController.text.isNotEmpty
+              ? IconButton(
+                  onPressed: () {
+                    _searchController.clear();
+                  },
+                  icon: const Icon(AppIcons.close),
+                )
+              : null,
+        ),
+      ),
+    );
+  }
+
   Widget _buildContent() {
+    if (_selectedVaultName == null || _selectedVaultName!.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              AppIcons.keyVault,
+              size: 64,
+              color: Colors.grey[400],
+            ),
+            const SizedBox(height: AppSpacing.md),
+            Text(
+              'Select a Key Vault',
+              style: Theme.of(context).textTheme.headlineSmall,
+            ),
+            const SizedBox(height: AppSpacing.sm),
+            Text(
+              'Choose a Key Vault from the dropdown above to view its certificates',
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Colors.grey[600],
+              ),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_isLoading) {
       return const Center(
         child: Column(
@@ -225,9 +427,8 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
       );
     }
 
-    final filteredCertificates = _filteredCertificates;
 
-    if (filteredCertificates.isEmpty) {
+    if (_filteredCertificates.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -239,19 +440,19 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
             ),
             const SizedBox(height: AppSpacing.md),
             Text(
-              _searchQuery.isEmpty ? 'No certificates found' : 'No certificates match your search',
+              _searchController.text.isEmpty ? 'No certificates found' : 'No certificates match your search',
               style: Theme.of(context).textTheme.headlineSmall,
             ),
             const SizedBox(height: AppSpacing.sm),
             Text(
-              _searchQuery.isEmpty
+              _searchController.text.isEmpty
                   ? 'Create your first certificate to get started'
                   : 'Try a different search term',
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                 color: Colors.grey[600],
               ),
             ),
-            if (_searchQuery.isEmpty) ...[
+            if (_searchController.text.isEmpty) ...[
               const SizedBox(height: AppSpacing.lg),
               FilledButton.icon(
                 onPressed: _createCertificate,
@@ -266,9 +467,9 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
 
     return ListView.builder(
       padding: const EdgeInsets.all(AppSpacing.md),
-      itemCount: filteredCertificates.length,
+      itemCount: _filteredCertificates.length,
       itemBuilder: (context, index) {
-        final certificate = filteredCertificates[index];
+        final certificate = _filteredCertificates[index];
         return _buildCertificateCard(certificate);
       },
     );
@@ -279,16 +480,18 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
       margin: const EdgeInsets.only(bottom: AppSpacing.md),
       child: InkWell(
         onTap: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(
-              builder: (context) => CertificateDetailsScreen(
-                vaultName: widget.vaultName,
-                certificateName: certificate.name,
-                cliService: widget.cliService,
+          if (_selectedVaultName != null) {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (context) => CertificateDetailsScreen(
+                  vaultName: _selectedVaultName!,
+                  certificateName: certificate.name,
+                  cliService: widget.cliService,
+                ),
               ),
-            ),
-          );
+            );
+          }
         },
         borderRadius: BorderRadius.circular(AppBorderRadius.lg),
         child: Padding(
