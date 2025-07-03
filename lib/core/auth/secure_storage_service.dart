@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:crypto/crypto.dart';
 import '../logging/app_logger.dart';
@@ -272,8 +273,8 @@ class SecureStorageService {
 
   /// Generates a secure random key
   String _generateSecureKey() {
-    final bytes = List<int>.generate(32, (i) => 
-        DateTime.now().millisecondsSinceEpoch + i);
+    final random = Random.secure();
+    final bytes = List<int>.generate(32, (i) => random.nextInt(256));
     return base64.encode(bytes);
   }
 
