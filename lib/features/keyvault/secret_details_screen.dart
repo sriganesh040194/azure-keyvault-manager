@@ -5,6 +5,7 @@ import '../../services/azure_cli/platform_azure_cli_service.dart';
 import '../../services/keyvault/secret_service.dart';
 import '../../services/keyvault/secret_models.dart';
 import '../../shared/widgets/app_theme.dart';
+import 'secret_update_dialog.dart';
 
 class SecretDetailsScreen extends StatefulWidget {
   final String vaultName;
@@ -94,6 +95,29 @@ class _SecretDetailsScreenState extends State<SecretDetailsScreen> {
     }
   }
 
+  Future<void> _updateSecret() async {
+    if (_secret == null) return;
+
+    final result = await showDialog<bool>(
+      context: context,
+      builder: (context) => SecretUpdateDialog(
+        vaultName: widget.vaultName,
+        secret: _secret!,
+        secretService: _secretService,
+      ),
+    );
+
+    if (result == true) {
+      // Refresh the secret details after update
+      await _loadSecret();
+      // Clear the cached secret value to force re-fetch if needed
+      setState(() {
+        _secretValue = null;
+        _isValueVisible = false;
+      });
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -105,6 +129,12 @@ class _SecretDetailsScreenState extends State<SecretDetailsScreen> {
             icon: const Icon(AppIcons.refresh),
             tooltip: 'Refresh',
           ),
+          if (_secret != null)
+            IconButton(
+              onPressed: _updateSecret,
+              icon: const Icon(AppIcons.edit),
+              tooltip: 'Update Secret',
+            ),
         ],
       ),
       body: _buildContent(),
@@ -281,6 +311,12 @@ class _SecretDetailsScreenState extends State<SecretDetailsScreen> {
                     icon: const Icon(AppIcons.copy),
                     tooltip: 'Copy Secret Value',
                   ),
+                OutlinedButton.icon(
+                  onPressed: _updateSecret,
+                  icon: const Icon(AppIcons.edit),
+                  label: const Text('Update'),
+                ),
+                const SizedBox(width: AppSpacing.sm),
                 FilledButton.icon(
                   onPressed: _isLoadingValue ? null : _loadSecretValue,
                   icon: _isLoadingValue 
