@@ -21,6 +21,9 @@ flutter run -d chrome --web-port 8080
 
 # Run with hot reload
 flutter run -d chrome --web-port 8080 --hot
+
+# Enable Flutter web (if needed)
+flutter config --enable-web
 ```
 
 ### Testing
@@ -34,15 +37,31 @@ flutter test test/input_validator_test.dart
 
 # Run tests with coverage
 flutter test --coverage
+
+# Run integration tests (requires Azure CLI setup)
+flutter test integration_test/
 ```
 
-### Building
+### Building & Quality
 ```bash
 # Build for production
 flutter build web
 
-# Analyze code
+# Analyze code for issues
 flutter analyze
+
+# Check for outdated dependencies
+flutter pub outdated
+
+# Update dependencies
+flutter pub upgrade --major-versions
+```
+
+### macOS Specific (if building for desktop)
+```bash
+# Build macOS app
+chmod +x scripts/build_macos.sh
+./scripts/build_macos.sh
 ```
 
 ## Project Architecture
@@ -56,29 +75,40 @@ flutter analyze
 ### Key Components
 
 #### Authentication Layer (`lib/core/auth/`)
-- **AuthService**: Handles Azure AD OAuth 2.0 flow with PKCE
-- **SecureStorageService**: Encrypts and stores authentication tokens
-- **AuthModels**: Data models for user info and tokens
+- **Multi-Strategy Authentication**: 6 different authentication services for various scenarios
+  - `AuthService`: Primary OAuth 2.0 web authentication with Azure AD
+  - `AzureCliAuthService`: Device code authentication flow using Azure CLI
+  - `CliAuthService`: Interactive Azure CLI authentication (desktop)
+  - `SimpleWebAuthService`: Basic web demo authentication (testing)
+  - `WebCliAuthService`: Web-compatible CLI simulation
+- **SecureStorageService**: Multi-platform encrypted storage (Keychain/SharedPreferences/IndexedDB)
+- **AuthModels**: Comprehensive data models for user info, tokens, and Azure AD config
 
 #### Security Layer (`lib/core/security/`)
-- **InputValidator**: Validates and sanitizes all user inputs
-- **Command Injection Prevention**: Protects against shell injection attacks
-- **Output Sanitization**: Redacts sensitive information from logs/UI
+- **InputValidator**: Multi-layer validation with 15+ validation methods
+- **Command Injection Prevention**: Regex-based dangerous pattern detection
+- **Output Sanitization**: Automatic redaction of sensitive CLI output
+- **Shell Argument Escaping**: Safe parameter passing to CLI commands
 
 #### Azure CLI Integration (`lib/services/azure_cli/`)
-- **AzureCliService**: Secure wrapper for Azure CLI commands
-- **Command Allow-listing**: Only approved commands can be executed
-- **Process Management**: Handles timeouts and concurrent operations
+- **Platform-Aware Architecture**: Separate implementations for different platforms
+  - `AzureCliService`: Core service for Windows/Linux
+  - `MacOSAzureCliService`: macOS-specific implementation with path discovery
+  - `PlatformAzureCliService`: Unified factory and abstraction layer
+- **Command Allow-listing**: Strict whitelist of 25+ permitted Azure CLI commands
+- **Process Management**: Concurrent operation limiting (max 5), timeout handling (300s)
+- **Security Integration**: Deep integration with authentication and validation layers
 
 #### UI Layer (`lib/features/`)
-- **Authentication**: Login/logout screens with Azure AD integration
-- **Dashboard**: Main navigation and overview
-- **KeyVault**: Key Vault management and operations
+- **Authentication**: Multiple login screens supporting different auth strategies
+- **Dashboard**: Feature-specific dashboards (production, web, simple web)
+- **KeyVault**: Complete Key Vault management with create, list, and detail screens
+- **Platform**: Web-specific platform compatibility notices
 
 ### State Management
-- Uses Riverpod for reactive state management
-- Flutter's built-in state management for UI components
-- Secure storage for persistent authentication state
+- **Riverpod**: Primary state management for reactive data flows
+- **Stream-based Architecture**: Real-time authentication state updates
+- **Secure Persistence**: Encrypted storage for authentication state across sessions
 
 ## Security Considerations
 
@@ -147,15 +177,22 @@ flutter analyze
 
 ## Configuration Requirements
 
-### Azure AD Setup Required
+### Azure CLI Requirements (Primary)
+- Azure CLI must be installed and authenticated (`az login`)
+- User must have Key Vault Contributor role or appropriate permissions
+- Application validates CLI availability and authentication before operations
+- Supports multiple installation paths (especially on macOS via Homebrew)
+
+### Azure AD Setup (Optional - for OAuth flows)
 - Tenant ID and Client ID must be configured in `AppConstants`
 - Redirect URI must match: `http://localhost:8080/auth/callback`
 - Required permissions: `https://vault.azure.net/user_impersonation`
+- Only needed for web-based OAuth authentication flows
 
-### Azure CLI Requirements
-- Azure CLI must be installed and authenticated
-- User must have appropriate Key Vault permissions
-- Application validates CLI availability before operations
+### Platform-Specific Configuration
+- **Web**: Limited to demo/simulation modes - full CLI functionality disabled
+- **macOS**: Automatic path discovery for CLI installations
+- **Windows/Linux**: Standard CLI integration with process management
 
 ## Common Issues and Solutions
 
@@ -190,3 +227,28 @@ flutter analyze
 - Cache authentication tokens appropriately
 - Limit concurrent CLI operations (max 5 by default)
 - Use debouncing for search operations
+- CLI command timeout set to 300 seconds (5 minutes)
+
+## Understanding the Multi-Authentication Architecture
+
+This application uses a **strategy pattern** for authentication to support different environments and use cases:
+
+### Authentication Strategy Selection
+- **Production Desktop**: Uses `AzureCliAuthService` (device code flow)
+- **Development/Demo**: Uses `SimpleWebAuthService` or `WebCliAuthService`  
+- **Web Production**: Limited to simulation modes (no real CLI access)
+- **OAuth Testing**: Uses `AuthService` for full Azure AD integration
+
+### Key Architectural Decisions
+- **Security-First**: Every command validated through multiple layers
+- **Platform-Aware**: Different CLI implementations per platform
+- **Defensive**: Web platforms blocked from executing actual CLI commands
+- **Concurrent**: Multiple CLI operations managed with process tracking
+- **Reactive**: Stream-based authentication state for real-time UI updates
+
+### CLI Command Flow
+1. **Input Validation**: `InputValidator.validateCommand()`
+2. **Allow-list Check**: Command verified against `AppConstants.allowedAzCommands`
+3. **Platform Selection**: Appropriate CLI service chosen automatically
+4. **Process Execution**: Managed execution with timeout and error handling
+5. **Output Sanitization**: `InputValidator.sanitizeOutput()` removes sensitive data

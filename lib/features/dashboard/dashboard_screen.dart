@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import '../../core/auth/cli_auth_service.dart';
 import '../../services/azure_cli/azure_cli_service.dart';
+import '../../services/azure_cli/platform_azure_cli_service.dart';
 import '../../shared/widgets/app_theme.dart';
 import '../keyvault/key_vault_list_screen.dart';
 import '../keyvault/key_vault_details_screen.dart';
+import '../keyvault/key_vault_tabbed_screen.dart';
+import '../keyvault/certificate_list_screen.dart';
 
 enum DashboardTab {
   overview,
@@ -29,12 +32,14 @@ class DashboardScreen extends StatefulWidget {
 class _DashboardScreenState extends State<DashboardScreen> {
   DashboardTab _selectedTab = DashboardTab.overview;
   late final AzureCliService _azureCliService;
+  late final UnifiedAzureCliService _unifiedCliService;
   String? _selectedKeyVault;
 
   @override
   void initState() {
     super.initState();
     _azureCliService = AzureCliService();
+    _unifiedCliService = PlatformAzureCliService.create();
   }
 
   void _onTabSelected(DashboardTab tab) {
@@ -198,7 +203,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
         return _selectedKeyVault == null
             ? KeyVaultListScreen(
                 azureCliService: _azureCliService,
-                onKeyVaultSelected: _onKeyVaultSelected,
+                onKeyVaultSelected: (vaultName) {
+                  Navigator.push(
+                    context,
+                    MaterialPageRoute(
+                      builder: (context) => KeyVaultTabbedScreen(
+                        vaultName: vaultName,
+                        cliService: _unifiedCliService,
+                      ),
+                    ),
+                  );
+                },
               )
             : KeyVaultDetailsScreen(
                 keyVaultName: _selectedKeyVault!,
@@ -371,8 +386,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   }
 
   Widget _buildCertificatesTab() {
-    return const Center(
-      child: Text('Certificates management coming soon'),
+    return CertificateListScreen(
+      vaultName: '',
+      cliService: _unifiedCliService,
     );
   }
 

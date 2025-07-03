@@ -53,5 +53,7 @@ class AppConstants {
     'az keyvault certificate delete',
     'az keyvault set-policy',
     'az keyvault delete-policy',
+    'az role'
+    'az role assignment list',
   ];
 }
