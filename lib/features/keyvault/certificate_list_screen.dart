@@ -12,11 +12,13 @@ import 'certificate_details_screen.dart';
 class CertificateListScreen extends StatefulWidget {
   final String? vaultName;
   final UnifiedAzureCliService cliService;
+  final bool showVaultSelector;
 
   const CertificateListScreen({
     super.key,
     this.vaultName,
     required this.cliService,
+    this.showVaultSelector = true,
   });
 
   @override
@@ -42,7 +44,11 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
     _keyVaultService = KeyVaultService(widget.cliService);
     _searchController.addListener(_filterCertificates);
     _selectedVaultName = widget.vaultName;
-    _loadKeyVaults();
+    
+    if (widget.showVaultSelector) {
+      _loadKeyVaults();
+    }
+    
     if (_selectedVaultName != null && _selectedVaultName!.isNotEmpty) {
       _loadCertificates();
     }
@@ -187,7 +193,7 @@ class _CertificateListScreenState extends State<CertificateListScreen> {
     return Column(
       children: [
         _buildHeader(),
-        _buildKeyVaultSelector(),
+        if (widget.showVaultSelector) _buildKeyVaultSelector(),
         if (_selectedVaultName != null && _selectedVaultName!.isNotEmpty) _buildSearchBar(),
         Expanded(child: _buildContent()),
       ],

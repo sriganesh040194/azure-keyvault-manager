@@ -69,16 +69,19 @@ class _KeyVaultTabbedScreenState extends State<KeyVaultTabbedScreen>
           SecretListScreen(
             vaultName: widget.vaultName,
             cliService: widget.cliService,
+            showVaultSelector: false, // Hide dropdown when accessed from specific KeyVault
           ),
           // Keys tab
           KeyListScreen(
             vaultName: widget.vaultName,
             cliService: widget.cliService,
+            showVaultSelector: false, // Hide dropdown when accessed from specific KeyVault
           ),
           // Certificates tab
           CertificateListScreen(
             vaultName: widget.vaultName,
             cliService: widget.cliService,
+            showVaultSelector: false, // Hide dropdown when accessed from specific KeyVault
           ),
         ],
       ),

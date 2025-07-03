@@ -11,11 +11,13 @@ import 'secret_details_screen.dart';
 class SecretListScreen extends StatefulWidget {
   final String? vaultName;
   final UnifiedAzureCliService cliService;
+  final bool showVaultSelector;
 
   const SecretListScreen({
     super.key,
     this.vaultName,
     required this.cliService,
+    this.showVaultSelector = true,
   });
 
   @override
@@ -41,7 +43,11 @@ class _SecretListScreenState extends State<SecretListScreen> {
     _keyVaultService = KeyVaultService(widget.cliService);
     _searchController.addListener(_filterSecrets);
     _selectedVaultName = widget.vaultName;
-    _loadKeyVaults();
+    
+    if (widget.showVaultSelector) {
+      _loadKeyVaults();
+    }
+    
     if (_selectedVaultName != null && _selectedVaultName!.isNotEmpty) {
       _loadSecrets();
     }
@@ -198,7 +204,7 @@ class _SecretListScreenState extends State<SecretListScreen> {
     return Column(
       children: [
         _buildHeader(),
-        _buildKeyVaultSelector(),
+        if (widget.showVaultSelector) _buildKeyVaultSelector(),
         if (_selectedVaultName != null && _selectedVaultName!.isNotEmpty) _buildSearchBar(),
         Expanded(child: _buildContent()),
       ],
