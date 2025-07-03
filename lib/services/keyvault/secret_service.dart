@@ -13,17 +13,15 @@ class SecretService {
   Future<List<SecretInfo>> listSecrets(String vaultName) async {
     try {
       // Validate vault name
-      if (!InputValidator.validateResourceName(vaultName)) {
-        throw ArgumentError('Invalid vault name: $vaultName');
+      final vaultValidation = InputValidator.validateResourceName(vaultName);
+      if (vaultValidation != null) {
+        throw ArgumentError('Invalid vault name: $vaultValidation');
       }
 
       AppLogger.info('Listing secrets for vault: $vaultName');
 
-      final result = await _cliService.executeCommand([
-        'az', 'keyvault', 'secret', 'list',
-        '--vault-name', vaultName,
-        '--output', 'json'
-      ]);
+      final result = await _cliService.executeCommand(
+          'az keyvault secret list --vault-name ${InputValidator.escapeShellArgument(vaultName)} --output json');
 
       if (!result.success) {
         throw Exception('Failed to list secrets: ${result.error}');
@@ -46,21 +44,19 @@ class SecretService {
   Future<SecretInfo> getSecret(String vaultName, String secretName) async {
     try {
       // Validate inputs
-      if (!InputValidator.validateResourceName(vaultName)) {
-        throw ArgumentError('Invalid vault name: $vaultName');
+      final vaultValidation = InputValidator.validateResourceName(vaultName);
+      if (vaultValidation != null) {
+        throw ArgumentError('Invalid vault name: $vaultValidation');
       }
-      if (!InputValidator.validateSecretName(secretName)) {
-        throw ArgumentError('Invalid secret name: $secretName');
+      final secretValidation = InputValidator.validateSecretName(secretName);
+      if (secretValidation != null) {
+        throw ArgumentError('Invalid secret name: $secretValidation');
       }
 
       AppLogger.info('Getting secret: $secretName from vault: $vaultName');
 
-      final result = await _cliService.executeCommand([
-        'az', 'keyvault', 'secret', 'show',
-        '--vault-name', vaultName,
-        '--name', secretName,
-        '--output', 'json'
-      ]);
+      final result = await _cliService.executeCommand(
+          'az keyvault secret show --vault-name ${InputValidator.escapeShellArgument(vaultName)} --name ${InputValidator.escapeShellArgument(secretName)} --output json');
 
       if (!result.success) {
         throw Exception('Failed to get secret: ${result.error}');
@@ -81,11 +77,13 @@ class SecretService {
   Future<SecretValue> getSecretValue(String vaultName, String secretName, {String? version}) async {
     try {
       // Validate inputs
-      if (!InputValidator.validateResourceName(vaultName)) {
-        throw ArgumentError('Invalid vault name: $vaultName');
+      final vaultValidation = InputValidator.validateResourceName(vaultName);
+      if (vaultValidation != null) {
+        throw ArgumentError('Invalid vault name: $vaultValidation');
       }
-      if (!InputValidator.validateSecretName(secretName)) {
-        throw ArgumentError('Invalid secret name: $secretName');
+      final secretValidation = InputValidator.validateSecretName(secretName);
+      if (secretValidation != null) {
+        throw ArgumentError('Invalid secret name: $secretValidation');
       }
 
       AppLogger.securityEvent('Retrieving secret value', {
@@ -94,18 +92,13 @@ class SecretService {
         'version': version ?? 'latest'
       });
 
-      final command = [
-        'az', 'keyvault', 'secret', 'show',
-        '--vault-name', vaultName,
-        '--name', secretName,
-        '--output', 'json'
-      ];
-
+      var commandStr = 'az keyvault secret show --vault-name ${InputValidator.escapeShellArgument(vaultName)} --name ${InputValidator.escapeShellArgument(secretName)} --output json';
+      
       if (version != null) {
-        command.addAll(['--version', version]);
+        commandStr += ' --version ${InputValidator.escapeShellArgument(version)}';
       }
 
-      final result = await _cliService.executeCommand(command);
+      final result = await _cliService.executeCommand(commandStr);
 
       if (!result.success) {
         throw Exception('Failed to get secret value: ${result.error}');
@@ -135,11 +128,13 @@ class SecretService {
   Future<SecretInfo> setSecret(String vaultName, CreateSecretRequest request) async {
     try {
       // Validate inputs
-      if (!InputValidator.validateResourceName(vaultName)) {
-        throw ArgumentError('Invalid vault name: $vaultName');
+      final vaultValidation = InputValidator.validateResourceName(vaultName);
+      if (vaultValidation != null) {
+        throw ArgumentError('Invalid vault name: $vaultValidation');
       }
-      if (!InputValidator.validateSecretName(request.name)) {
-        throw ArgumentError('Invalid secret name: ${request.name}');
+      final secretValidation = InputValidator.validateSecretName(request.name);
+      if (secretValidation != null) {
+        throw ArgumentError('Invalid secret name: $secretValidation');
       }
 
       AppLogger.securityEvent('Creating/updating secret', {
@@ -147,35 +142,29 @@ class SecretService {
         'secretName': request.name
       });
 
-      final command = [
-        'az', 'keyvault', 'secret', 'set',
-        '--vault-name', vaultName,
-        '--name', request.name,
-        '--value', request.value,
-        '--output', 'json'
-      ];
+      var commandStr = 'az keyvault secret set --vault-name ${InputValidator.escapeShellArgument(vaultName)} --name ${InputValidator.escapeShellArgument(request.name)} --value ${InputValidator.escapeShellArgument(request.value)} --output json';
 
       // Add optional parameters
       if (request.contentType != null) {
-        command.addAll(['--content-type', request.contentType!]);
+        commandStr += ' --content-type ${InputValidator.escapeShellArgument(request.contentType!)}';
       }
       if (request.enabled != null) {
-        command.addAll(['--disabled', (!request.enabled!).toString()]);
+        commandStr += ' --disabled ${(!request.enabled!).toString()}';
       }
       if (request.expires != null) {
-        command.addAll(['--expires', request.expires!.toIso8601String()]);
+        commandStr += ' --expires ${InputValidator.escapeShellArgument(request.expires!.toIso8601String())}';
       }
       if (request.notBefore != null) {
-        command.addAll(['--not-before', request.notBefore!.toIso8601String()]);
+        commandStr += ' --not-before ${InputValidator.escapeShellArgument(request.notBefore!.toIso8601String())}';
       }
       if (request.tags != null && request.tags!.isNotEmpty) {
         final tagsString = request.tags!.entries
             .map((e) => '${e.key}=${e.value}')
             .join(' ');
-        command.addAll(['--tags', tagsString]);
+        commandStr += ' --tags ${InputValidator.escapeShellArgument(tagsString)}';
       }
 
-      final result = await _cliService.executeCommand(command);
+      final result = await _cliService.executeCommand(commandStr);
 
       if (!result.success) {
         throw Exception('Failed to set secret: ${result.error}');
@@ -196,43 +185,40 @@ class SecretService {
   Future<SecretInfo> updateSecret(String vaultName, String secretName, UpdateSecretRequest request) async {
     try {
       // Validate inputs
-      if (!InputValidator.validateResourceName(vaultName)) {
-        throw ArgumentError('Invalid vault name: $vaultName');
+      final vaultValidation = InputValidator.validateResourceName(vaultName);
+      if (vaultValidation != null) {
+        throw ArgumentError('Invalid vault name: $vaultValidation');
       }
-      if (!InputValidator.validateSecretName(secretName)) {
-        throw ArgumentError('Invalid secret name: $secretName');
+      final secretValidation = InputValidator.validateSecretName(secretName);
+      if (secretValidation != null) {
+        throw ArgumentError('Invalid secret name: $secretValidation');
       }
 
       AppLogger.info('Updating secret attributes: $secretName in vault: $vaultName');
 
-      final command = [
-        'az', 'keyvault', 'secret', 'set-attributes',
-        '--vault-name', vaultName,
-        '--name', secretName,
-        '--output', 'json'
-      ];
+      var commandStr = 'az keyvault secret set-attributes --vault-name ${InputValidator.escapeShellArgument(vaultName)} --name ${InputValidator.escapeShellArgument(secretName)} --output json';
 
       // Add optional parameters
       if (request.contentType != null) {
-        command.addAll(['--content-type', request.contentType!]);
+        commandStr += ' --content-type ${InputValidator.escapeShellArgument(request.contentType!)}';
       }
       if (request.enabled != null) {
-        command.addAll(['--enabled', request.enabled!.toString()]);
+        commandStr += ' --enabled ${request.enabled!.toString()}';
       }
       if (request.expires != null) {
-        command.addAll(['--expires', request.expires!.toIso8601String()]);
+        commandStr += ' --expires ${InputValidator.escapeShellArgument(request.expires!.toIso8601String())}';
       }
       if (request.notBefore != null) {
-        command.addAll(['--not-before', request.notBefore!.toIso8601String()]);
+        commandStr += ' --not-before ${InputValidator.escapeShellArgument(request.notBefore!.toIso8601String())}';
       }
       if (request.tags != null && request.tags!.isNotEmpty) {
         final tagsString = request.tags!.entries
             .map((e) => '${e.key}=${e.value}')
             .join(' ');
-        command.addAll(['--tags', tagsString]);
+        commandStr += ' --tags ${InputValidator.escapeShellArgument(tagsString)}';
       }
 
-      final result = await _cliService.executeCommand(command);
+      final result = await _cliService.executeCommand(commandStr);
 
       if (!result.success) {
         throw Exception('Failed to update secret: ${result.error}');
@@ -253,11 +239,13 @@ class SecretService {
   Future<void> deleteSecret(String vaultName, String secretName) async {
     try {
       // Validate inputs
-      if (!InputValidator.validateResourceName(vaultName)) {
-        throw ArgumentError('Invalid vault name: $vaultName');
+      final vaultValidation = InputValidator.validateResourceName(vaultName);
+      if (vaultValidation != null) {
+        throw ArgumentError('Invalid vault name: $vaultValidation');
       }
-      if (!InputValidator.validateSecretName(secretName)) {
-        throw ArgumentError('Invalid secret name: $secretName');
+      final secretValidation = InputValidator.validateSecretName(secretName);
+      if (secretValidation != null) {
+        throw ArgumentError('Invalid secret name: $secretValidation');
       }
 
       AppLogger.securityEvent('Deleting secret', {
@@ -265,12 +253,8 @@ class SecretService {
         'secretName': secretName
       });
 
-      final result = await _cliService.executeCommand([
-        'az', 'keyvault', 'secret', 'delete',
-        '--vault-name', vaultName,
-        '--name', secretName,
-        '--output', 'json'
-      ]);
+      final result = await _cliService.executeCommand(
+          'az keyvault secret delete --vault-name ${InputValidator.escapeShellArgument(vaultName)} --name ${InputValidator.escapeShellArgument(secretName)} --output json');
 
       if (!result.success) {
         throw Exception('Failed to delete secret: ${result.error}');
@@ -287,21 +271,19 @@ class SecretService {
   Future<SecretInfo> recoverSecret(String vaultName, String secretName) async {
     try {
       // Validate inputs
-      if (!InputValidator.validateResourceName(vaultName)) {
-        throw ArgumentError('Invalid vault name: $vaultName');
+      final vaultValidation = InputValidator.validateResourceName(vaultName);
+      if (vaultValidation != null) {
+        throw ArgumentError('Invalid vault name: $vaultValidation');
       }
-      if (!InputValidator.validateSecretName(secretName)) {
-        throw ArgumentError('Invalid secret name: $secretName');
+      final secretValidation = InputValidator.validateSecretName(secretName);
+      if (secretValidation != null) {
+        throw ArgumentError('Invalid secret name: $secretValidation');
       }
 
       AppLogger.info('Recovering secret: $secretName in vault: $vaultName');
 
-      final result = await _cliService.executeCommand([
-        'az', 'keyvault', 'secret', 'recover',
-        '--vault-name', vaultName,
-        '--name', secretName,
-        '--output', 'json'
-      ]);
+      final result = await _cliService.executeCommand(
+          'az keyvault secret recover --vault-name ${InputValidator.escapeShellArgument(vaultName)} --name ${InputValidator.escapeShellArgument(secretName)} --output json');
 
       if (!result.success) {
         throw Exception('Failed to recover secret: ${result.error}');
@@ -322,11 +304,13 @@ class SecretService {
   Future<void> purgeSecret(String vaultName, String secretName) async {
     try {
       // Validate inputs
-      if (!InputValidator.validateResourceName(vaultName)) {
-        throw ArgumentError('Invalid vault name: $vaultName');
+      final vaultValidation = InputValidator.validateResourceName(vaultName);
+      if (vaultValidation != null) {
+        throw ArgumentError('Invalid vault name: $vaultValidation');
       }
-      if (!InputValidator.validateSecretName(secretName)) {
-        throw ArgumentError('Invalid secret name: $secretName');
+      final secretValidation = InputValidator.validateSecretName(secretName);
+      if (secretValidation != null) {
+        throw ArgumentError('Invalid secret name: $secretValidation');
       }
 
       AppLogger.securityEvent('Purging secret (permanent deletion)', {
@@ -334,12 +318,8 @@ class SecretService {
         'secretName': secretName
       });
 
-      final result = await _cliService.executeCommand([
-        'az', 'keyvault', 'secret', 'purge',
-        '--vault-name', vaultName,
-        '--name', secretName,
-        '--output', 'json'
-      ]);
+      final result = await _cliService.executeCommand(
+          'az keyvault secret purge --vault-name ${InputValidator.escapeShellArgument(vaultName)} --name ${InputValidator.escapeShellArgument(secretName)} --output json');
 
       if (!result.success) {
         throw Exception('Failed to purge secret: ${result.error}');
@@ -356,21 +336,19 @@ class SecretService {
   Future<List<SecretVersion>> listSecretVersions(String vaultName, String secretName) async {
     try {
       // Validate inputs
-      if (!InputValidator.validateResourceName(vaultName)) {
-        throw ArgumentError('Invalid vault name: $vaultName');
+      final vaultValidation = InputValidator.validateResourceName(vaultName);
+      if (vaultValidation != null) {
+        throw ArgumentError('Invalid vault name: $vaultValidation');
       }
-      if (!InputValidator.validateSecretName(secretName)) {
-        throw ArgumentError('Invalid secret name: $secretName');
+      final secretValidation = InputValidator.validateSecretName(secretName);
+      if (secretValidation != null) {
+        throw ArgumentError('Invalid secret name: $secretValidation');
       }
 
       AppLogger.info('Listing versions for secret: $secretName in vault: $vaultName');
 
-      final result = await _cliService.executeCommand([
-        'az', 'keyvault', 'secret', 'list-versions',
-        '--vault-name', vaultName,
-        '--name', secretName,
-        '--output', 'json'
-      ]);
+      final result = await _cliService.executeCommand(
+          'az keyvault secret list-versions --vault-name ${InputValidator.escapeShellArgument(vaultName)} --name ${InputValidator.escapeShellArgument(secretName)} --output json');
 
       if (!result.success) {
         throw Exception('Failed to list secret versions: ${result.error}');

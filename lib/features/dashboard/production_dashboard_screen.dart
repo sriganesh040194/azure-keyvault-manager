@@ -1,9 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/azure_cli_auth_service.dart';
+import '../../services/azure_cli/platform_azure_cli_service.dart';
 import '../../services/keyvault/keyvault_service.dart';
+import '../../services/keyvault/secret_service.dart';
+import '../../services/keyvault/secret_models.dart';
 import '../../shared/widgets/app_theme.dart';
 import '../../core/logging/app_logger.dart';
+import '../keyvault/secret_list_screen.dart';
 
 class ProductionDashboardScreen extends ConsumerStatefulWidget {
   final AzureCliAuthService authService;
@@ -26,6 +30,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
   List<Map<String, dynamic>>? _subscriptions;
   Map<String, dynamic>? _currentSubscription;
   bool _isLoadingSubscriptions = false;
+  late UnifiedAzureCliService _unifiedCliService;
 
   final List<String> _tabTitles = [
     'Overview',
@@ -48,6 +53,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
   @override
   void initState() {
     super.initState();
+    _unifiedCliService = UnifiedAzureCliService();
     _loadSubscriptions();
   }
 
@@ -720,7 +726,10 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
   }
 
   Widget _buildSecretsTab() {
-    return _buildComingSoonTab('Secrets', AppIcons.secret, 'Secret management functionality coming soon');
+    return SecretListScreen(
+      vaultName: '',
+      cliService: _unifiedCliService,
+    );
   }
 
   Widget _buildKeysTab() {

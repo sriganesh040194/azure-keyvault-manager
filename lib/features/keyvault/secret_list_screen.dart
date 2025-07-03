@@ -3,17 +3,18 @@ import '../../core/logging/app_logger.dart';
 import '../../services/azure_cli/platform_azure_cli_service.dart';
 import '../../services/keyvault/secret_service.dart';
 import '../../services/keyvault/secret_models.dart';
+import '../../services/keyvault/keyvault_service.dart' show KeyVaultService, KeyVaultInfo;
 import '../../shared/widgets/app_theme.dart';
 import 'secret_create_dialog.dart';
 import 'secret_details_screen.dart';
 
 class SecretListScreen extends StatefulWidget {
-  final String vaultName;
+  final String? vaultName;
   final UnifiedAzureCliService cliService;
 
   const SecretListScreen({
     super.key,
-    required this.vaultName,
+    this.vaultName,
     required this.cliService,
   });
 
@@ -23,18 +24,27 @@ class SecretListScreen extends StatefulWidget {
 
 class _SecretListScreenState extends State<SecretListScreen> {
   late SecretService _secretService;
+  late KeyVaultService _keyVaultService;
   List<SecretInfo> _secrets = [];
   List<SecretInfo> _filteredSecrets = [];
+  List<KeyVaultInfo> _keyVaults = [];
   bool _isLoading = false;
+  bool _isLoadingKeyVaults = false;
   String? _errorMessage;
+  String? _selectedVaultName;
   final TextEditingController _searchController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     _secretService = SecretService(widget.cliService);
+    _keyVaultService = KeyVaultService(widget.cliService);
     _searchController.addListener(_filterSecrets);
-    _loadSecrets();
+    _selectedVaultName = widget.vaultName;
+    _loadKeyVaults();
+    if (_selectedVaultName != null && _selectedVaultName!.isNotEmpty) {
+      _loadSecrets();
+    }
   }
 
   @override
@@ -43,8 +53,35 @@ class _SecretListScreenState extends State<SecretListScreen> {
     super.dispose();
   }
 
+  Future<void> _loadKeyVaults() async {
+    setState(() {
+      _isLoadingKeyVaults = true;
+    });
+
+    try {
+      final keyVaults = await _keyVaultService.listKeyVaults();
+      setState(() {
+        _keyVaults = keyVaults;
+        _isLoadingKeyVaults = false;
+        
+        // If selected vault is no longer available, clear the selection
+        if (_selectedVaultName != null && 
+            !keyVaults.any((vault) => vault.name == _selectedVaultName)) {
+          _selectedVaultName = null;
+          _secrets.clear();
+          _filteredSecrets.clear();
+        }
+      });
+    } catch (e) {
+      setState(() {
+        _isLoadingKeyVaults = false;
+      });
+      AppLogger.error('Failed to load key vaults', e);
+    }
+  }
+
   Future<void> _loadSecrets() async {
-    if (widget.vaultName.isEmpty) return;
+    if (_selectedVaultName == null || _selectedVaultName!.isEmpty) return;
 
     setState(() {
       _isLoading = true;
@@ -52,7 +89,7 @@ class _SecretListScreenState extends State<SecretListScreen> {
     });
 
     try {
-      final secrets = await _secretService.listSecrets(widget.vaultName);
+      final secrets = await _secretService.listSecrets(_selectedVaultName!);
       setState(() {
         _secrets = secrets;
         _filteredSecrets = secrets;
@@ -79,10 +116,12 @@ class _SecretListScreenState extends State<SecretListScreen> {
   }
 
   Future<void> _createSecret() async {
+    if (_selectedVaultName == null || _selectedVaultName!.isEmpty) return;
+
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => SecretCreateDialog(
-        vaultName: widget.vaultName,
+        vaultName: _selectedVaultName!,
         secretService: _secretService,
       ),
     );
@@ -93,11 +132,13 @@ class _SecretListScreenState extends State<SecretListScreen> {
   }
 
   void _viewSecretDetails(SecretInfo secret) {
+    if (_selectedVaultName == null || _selectedVaultName!.isEmpty) return;
+
     Navigator.push(
       context,
       MaterialPageRoute(
         builder: (context) => SecretDetailsScreen(
-          vaultName: widget.vaultName,
+          vaultName: _selectedVaultName!,
           secretName: secret.name,
           cliService: widget.cliService,
         ),
@@ -127,9 +168,9 @@ class _SecretListScreenState extends State<SecretListScreen> {
       ),
     );
 
-    if (confirmed == true) {
+    if (confirmed == true && _selectedVaultName != null) {
       try {
-        await _secretService.deleteSecret(widget.vaultName, secret.name);
+        await _secretService.deleteSecret(_selectedVaultName!, secret.name);
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -154,16 +195,11 @@ class _SecretListScreenState extends State<SecretListScreen> {
 
   @override
   Widget build(BuildContext context) {
-    if (widget.vaultName.isEmpty) {
-      return const Center(
-        child: Text('Please select a Key Vault to view secrets'),
-      );
-    }
-
     return Column(
       children: [
         _buildHeader(),
-        _buildSearchBar(),
+        _buildKeyVaultSelector(),
+        if (_selectedVaultName != null && _selectedVaultName!.isNotEmpty) _buildSearchBar(),
         Expanded(child: _buildContent()),
       ],
     );
@@ -207,7 +243,7 @@ class _SecretListScreenState extends State<SecretListScreen> {
                   ),
                 ),
                 Text(
-                  widget.vaultName,
+                  _selectedVaultName ?? 'No Key Vault selected',
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Colors.grey[600],
                   ),
@@ -216,15 +252,91 @@ class _SecretListScreenState extends State<SecretListScreen> {
             ),
           ),
           OutlinedButton.icon(
-            onPressed: _loadSecrets,
+            onPressed: _selectedVaultName != null ? _loadSecrets : null,
             icon: const Icon(AppIcons.refresh),
             label: const Text('Refresh'),
           ),
           const SizedBox(width: AppSpacing.sm),
           FilledButton.icon(
-            onPressed: _createSecret,
+            onPressed: _selectedVaultName != null ? _createSecret : null,
             icon: const Icon(AppIcons.add),
             label: const Text('Create Secret'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildKeyVaultSelector() {
+    return Container(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Icon(AppIcons.keyVault),
+          const SizedBox(width: AppSpacing.md),
+          Expanded(
+            child: _isLoadingKeyVaults
+                ? const Row(
+                    children: [
+                      SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                      SizedBox(width: AppSpacing.md),
+                      Text('Loading Key Vaults...'),
+                    ],
+                  )
+                : DropdownButton<String>(
+                    hint: const Text('Select a Key Vault'),
+                    value: _keyVaults.any((vault) => vault.name == _selectedVaultName) 
+                        ? _selectedVaultName 
+                        : null,
+                    isExpanded: true,
+                    items: _keyVaults.map((vault) {
+                      return DropdownMenuItem<String>(
+                        value: vault.name,
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: Text(vault.name),
+                            ),
+                            Text(
+                              vault.location,
+                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                color: Colors.grey[600],
+                              ),
+                            ),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                    onChanged: (String? newValue) {
+                      setState(() {
+                        _selectedVaultName = newValue;
+                        _secrets.clear();
+                        _filteredSecrets.clear();
+                        _errorMessage = null;
+                      });
+                      if (newValue != null && newValue.isNotEmpty) {
+                        _loadSecrets();
+                      }
+                    },
+                  ),
+          ),
+          const SizedBox(width: AppSpacing.md),
+          OutlinedButton.icon(
+            onPressed: _loadKeyVaults,
+            icon: const Icon(AppIcons.refresh),
+            label: const Text('Refresh Vaults'),
           ),
         ],
       ),
@@ -256,6 +368,29 @@ class _SecretListScreenState extends State<SecretListScreen> {
   }
 
   Widget _buildContent() {
+    if (_selectedVaultName == null || _selectedVaultName!.isEmpty) {
+      return const Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(
+              AppIcons.keyVault,
+              size: 64,
+              color: Colors.grey,
+            ),
+            SizedBox(height: AppSpacing.md),
+            Text(
+              'Please select a Key Vault to view secrets',
+              style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey,
+              ),
+            ),
+          ],
+        ),
+      );
+    }
+
     if (_isLoading) {
       return const Center(
         child: Column(
