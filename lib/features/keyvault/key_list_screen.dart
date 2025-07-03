@@ -67,22 +67,26 @@ class _KeyListScreenState extends State<KeyListScreen> {
 
     try {
       final keyVaults = await _keyVaultService.listKeyVaults();
-      setState(() {
-        _keyVaults = keyVaults;
-        _isLoadingKeyVaults = false;
-        
-        // If selected vault is no longer available, clear the selection
-        if (_selectedVaultName != null && 
-            !keyVaults.any((vault) => vault.name == _selectedVaultName)) {
-          _selectedVaultName = null;
-          _keys.clear();
-          _filteredKeys.clear();
-        }
-      });
+      if (mounted) {
+        setState(() {
+          _keyVaults = keyVaults;
+          _isLoadingKeyVaults = false;
+          
+          // If selected vault is no longer available, clear the selection
+          if (_selectedVaultName != null && 
+              !keyVaults.any((vault) => vault.name == _selectedVaultName)) {
+            _selectedVaultName = null;
+            _keys.clear();
+            _filteredKeys.clear();
+          }
+        });
+      }
     } catch (e) {
-      setState(() {
-        _isLoadingKeyVaults = false;
-      });
+      if (mounted) {
+        setState(() {
+          _isLoadingKeyVaults = false;
+        });
+      }
       AppLogger.error('Failed to load key vaults', e);
     }
   }
@@ -97,16 +101,20 @@ class _KeyListScreenState extends State<KeyListScreen> {
 
     try {
       final keys = await _keyService.listKeys(_selectedVaultName!);
-      setState(() {
-        _keys = keys;
-        _filteredKeys = keys;
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _keys = keys;
+          _filteredKeys = keys;
+          _isLoading = false;
+        });
+      }
     } catch (e) {
-      setState(() {
-        _errorMessage = e.toString();
-        _isLoading = false;
-      });
+      if (mounted) {
+        setState(() {
+          _errorMessage = e.toString();
+          _isLoading = false;
+        });
+      }
       AppLogger.error('Failed to load keys', e);
     }
   }
