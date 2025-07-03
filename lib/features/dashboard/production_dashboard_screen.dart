@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/azure_cli_auth_service.dart';
 import '../../services/azure_cli/platform_azure_cli_service.dart';
 import '../../services/keyvault/keyvault_service.dart';
-import '../../services/keyvault/secret_service.dart';
-import '../../services/keyvault/secret_models.dart';
 import '../../shared/widgets/app_theme.dart';
 import '../../core/logging/app_logger.dart';
 import '../keyvault/secret_list_screen.dart';
+import '../keyvault/key_vault_details_screen.dart';
+import '../keyvault/certificate_list_screen.dart';
 
 class ProductionDashboardScreen extends ConsumerStatefulWidget {
   final AzureCliAuthService authService;
@@ -38,6 +38,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
     'Secrets',
     'Keys',
     'Certificates',
+    'Audit',
     'Settings',
   ];
 
@@ -47,6 +48,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
     AppIcons.secret,
     AppIcons.key,
     AppIcons.certificate,
+    AppIcons.audit,
     AppIcons.settings,
   ];
 
@@ -512,6 +514,8 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
       case 4:
         return _buildCertificatesTab();
       case 5:
+        return _buildAuditTab();
+      case 6:
         return _buildSettingsTab();
       default:
         return _buildOverviewTab();
@@ -599,7 +603,15 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                 subtitle: Text('${vault.location} • ${vault.resourceGroup}'),
                 trailing: IconButton(
                   onPressed: () {
-                    setState(() => _selectedIndex = 1);
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (context) => KeyVaultDetailsScreen(
+                          vaultName: vault.name,
+                          cliService: _unifiedCliService,
+                        ),
+                      ),
+                    );
                   },
                   icon: const Icon(Icons.arrow_forward_ios, size: 16),
                 ),
@@ -708,10 +720,13 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                       ),
                       trailing: const Icon(Icons.arrow_forward_ios, size: 16),
                       onTap: () {
-                        // TODO: Navigate to vault details
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          SnackBar(
-                            content: Text('Opening ${vault.name} details'),
+                        Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (context) => KeyVaultDetailsScreen(
+                              vaultName: vault.name,
+                              cliService: _unifiedCliService,
+                            ),
                           ),
                         );
                       },
@@ -737,7 +752,80 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
   }
 
   Widget _buildCertificatesTab() {
-    return _buildComingSoonTab('Certificates', AppIcons.certificate, 'Certificate management functionality coming soon');
+    return CertificateListScreen(
+      vaultName: '',
+      cliService: _unifiedCliService,
+    );
+  }
+
+  Widget _buildAuditTab() {
+    return Padding(
+      padding: const EdgeInsets.all(AppSpacing.lg),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            'Audit Logs',
+            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+          const SizedBox(height: AppSpacing.lg),
+          
+          // Recent activity section
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      const Icon(AppIcons.audit),
+                      const SizedBox(width: AppSpacing.sm),
+                      Text(
+                        'Recent Activity',
+                        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: AppSpacing.lg),
+                  const Center(
+                    child: Column(
+                      children: [
+                        Icon(
+                          AppIcons.audit,
+                          size: 64,
+                          color: Colors.grey,
+                        ),
+                        SizedBox(height: AppSpacing.lg),
+                        Text(
+                          'No recent activity to display',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 16,
+                          ),
+                        ),
+                        SizedBox(height: AppSpacing.sm),
+                        Text(
+                          'Audit log functionality coming soon',
+                          style: TextStyle(
+                            color: Colors.grey,
+                            fontSize: 14,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
   }
 
   Widget _buildSettingsTab() {
