@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'dart:convert';
 import '../../services/azure_cli/azure_cli_service.dart';
+import '../../services/azure_cli/platform_azure_cli_service.dart';
 import '../../shared/widgets/app_theme.dart';
 import '../../core/logging/app_logger.dart';
 import 'key_vault_create_dialog.dart';
+import 'key_vault_details_screen.dart';
 
 class KeyVaultInfo {
   final String name;
@@ -209,6 +211,18 @@ class _KeyVaultListScreenState extends State<KeyVaultListScreen> {
     }
   }
 
+  void _viewKeyVaultDetails(KeyVaultInfo keyVault) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => KeyVaultDetailsScreen(
+          vaultName: keyVault.name,
+          cliService: PlatformAzureCliService.create(),
+        ),
+      ),
+    );
+  }
+
   List<KeyVaultInfo> get _filteredKeyVaults {
     if (_searchQuery.isEmpty) {
       return _keyVaults;
@@ -359,12 +373,23 @@ class _KeyVaultListScreenState extends State<KeyVaultListScreen> {
                   PopupMenuButton<String>(
                     onSelected: (value) {
                       switch (value) {
+                        case 'details':
+                          _viewKeyVaultDetails(keyVault);
+                          break;
                         case 'delete':
                           _deleteKeyVault(keyVault);
                           break;
                       }
                     },
                     itemBuilder: (context) => [
+                      const PopupMenuItem(
+                        value: 'details',
+                        child: ListTile(
+                          leading: Icon(AppIcons.visibility),
+                          title: Text('View Details'),
+                          contentPadding: EdgeInsets.zero,
+                        ),
+                      ),
                       const PopupMenuItem(
                         value: 'delete',
                         child: ListTile(

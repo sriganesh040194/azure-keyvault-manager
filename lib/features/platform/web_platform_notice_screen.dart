@@ -1,8 +1,68 @@
 import 'package:flutter/material.dart';
 import '../../shared/widgets/app_theme.dart';
+import '../../core/auth/web_cli_auth_service.dart';
+import '../dashboard/web_dashboard_screen.dart';
 
 class WebPlatformNoticeScreen extends StatelessWidget {
   const WebPlatformNoticeScreen({super.key});
+
+  void _launchDemo(BuildContext context) async {
+    try {
+      // Show loading indicator
+      showDialog(
+        context: context,
+        barrierDismissible: false,
+        builder: (context) => const Center(
+          child: Card(
+            child: Padding(
+              padding: EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  CircularProgressIndicator(),
+                  SizedBox(height: AppSpacing.md),
+                  Text('Loading demo...'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+
+      // Create a demo auth service and authenticate
+      final demoAuthService = WebCliAuthService();
+      await demoAuthService.login();
+      
+      // Check if the widget is still mounted before using context
+      if (context.mounted) {
+        // Close loading dialog
+        Navigator.of(context).pop();
+        
+        // Navigate to the web dashboard demo
+        Navigator.of(context).pushReplacement(
+          MaterialPageRoute(
+            builder: (context) => WebDashboardScreen(
+              authService: demoAuthService,
+            ),
+          ),
+        );
+      }
+    } catch (e) {
+      // Check if the widget is still mounted before using context
+      if (context.mounted) {
+        // Close loading dialog if it's open
+        Navigator.of(context).pop();
+        
+        // Show error
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to launch demo: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -258,26 +318,45 @@ class WebPlatformNoticeScreen extends StatelessWidget {
 
                       const SizedBox(height: AppSpacing.lg),
 
-                      // Download Links (placeholder)
-                      FilledButton.icon(
-                        onPressed: () {
-                          ScaffoldMessenger.of(context).showSnackBar(
-                            const SnackBar(
-                              content: Text('Desktop applications would be available for download from your release repository'),
-                              duration: Duration(seconds: 4),
+                      // Action Buttons
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          OutlinedButton.icon(
+                            onPressed: () => _launchDemo(context),
+                            icon: const Icon(AppIcons.dashboard),
+                            label: const Text('View Demo'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppTheme.primaryColor,
+                              side: const BorderSide(color: AppTheme.primaryColor),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.lg,
+                                vertical: AppSpacing.md,
+                              ),
                             ),
-                          );
-                        },
-                        icon: const Icon(AppIcons.download),
-                        label: const Text('Download Desktop Application'),
-                        style: FilledButton.styleFrom(
-                          backgroundColor: AppTheme.primaryColor,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: AppSpacing.lg,
-                            vertical: AppSpacing.md,
                           ),
-                        ),
+                          const SizedBox(width: AppSpacing.md),
+                          FilledButton.icon(
+                            onPressed: () {
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                const SnackBar(
+                                  content: Text('Desktop applications would be available for download from your release repository'),
+                                  duration: Duration(seconds: 4),
+                                ),
+                              );
+                            },
+                            icon: const Icon(AppIcons.download),
+                            label: const Text('Download Desktop App'),
+                            style: FilledButton.styleFrom(
+                              backgroundColor: AppTheme.primaryColor,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: AppSpacing.lg,
+                                vertical: AppSpacing.md,
+                              ),
+                            ),
+                          ),
+                        ],
                       ),
                     ],
                   ),
