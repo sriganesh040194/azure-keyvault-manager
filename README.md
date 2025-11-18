@@ -28,6 +28,30 @@ A secure Flutter web application that provides a user-friendly interface for man
 - **Error Handling**: User-friendly error messages and recovery options
 - **Real-time Updates**: Live status updates for long-running operations
 
+## 📥 Installation (macOS Desktop App)
+
+### Quick Install for macOS Users
+
+Azure Key Vault Manager is available as a native macOS application.
+
+⚠️ **Important:** This app is not notarized by Apple (requires $99/year Developer Program). It's completely safe - the code is open source and available for inspection.
+
+**Installation Steps:**
+
+1. **Download** the latest DMG from [Releases](https://github.com/yourusername/keyvault-ui/releases)
+2. **Open DMG** and drag app to Applications folder
+3. **Bypass Gatekeeper** by running this command:
+   ```bash
+   xattr -cr "/Applications/Azure Key Vault Manager.app"
+   ```
+4. **Launch** the app from Applications
+
+**Why this step?** Since we distribute this app free without Apple Developer Program membership, macOS can't verify it automatically. The command above tells macOS to trust the app.
+
+📖 **Detailed installation guide:** See [INSTALL.md](INSTALL.md) for comprehensive instructions, troubleshooting, and security information.
+
+---
+
 ## 📋 Prerequisites
 
 Before setting up the application, ensure you have the following installed:
@@ -268,7 +292,7 @@ The application includes built-in health checks:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ## 🙏 Acknowledgments
 
