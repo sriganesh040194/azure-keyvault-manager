@@ -3,7 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../core/auth/azure_cli_auth_service.dart';
 import '../../services/azure_cli/platform_azure_cli_service.dart';
 import '../../services/keyvault/keyvault_service.dart';
+import '../../services/update/update_service.dart';
+import '../../services/update/update_storage.dart';
 import '../../shared/widgets/app_theme.dart';
+import '../../shared/constants/app_constants.dart';
+import '../../shared/dialogs/update_available_dialog.dart';
 import '../../core/logging/app_logger.dart';
 import '../keyvault/secret_list_screen.dart';
 import '../keyvault/key_vault_details_screen.dart';
@@ -189,6 +193,83 @@ class _ProductionDashboardScreenState
 
     if (confirmed == true) {
       await widget.authService.logout();
+    }
+  }
+
+  Future<void> _handleCheckForUpdates() async {
+    // Show loading snackbar
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Row(
+          children: [
+            SizedBox(
+              width: 16,
+              height: 16,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+              ),
+            ),
+            SizedBox(width: 16),
+            Text('Checking for updates...'),
+          ],
+        ),
+        duration: Duration(seconds: 30),
+      ),
+    );
+
+    try {
+      final updateService = UpdateService(
+        githubOwner: AppConstants.githubOwner,
+        githubRepo: AppConstants.githubRepo,
+      );
+      final updateStorage = UpdateStorage();
+
+      final result = await updateService.checkForUpdates();
+
+      if (!mounted) return;
+
+      // Hide loading snackbar
+      ScaffoldMessenger.of(context).hideCurrentSnackBar();
+
+      if (result.updateAvailable && result.updateInfo != null) {
+        // Clear any skipped version to force showing dialog
+        await updateStorage.clearSkippedVersion();
+
+        // Show update dialog
+        await showUpdateAvailableDialog(
+          context: context,
+          updateInfo: result.updateInfo!,
+          currentVersion: result.currentVersion,
+        );
+      } else if (result.error != null) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Failed to check for updates: ${result.error}'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('You are using the latest version!'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      }
+    } catch (e) {
+      AppLogger.error('Error checking for updates: $e');
+
+      if (mounted) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Error checking for updates: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
     }
   }
 
@@ -1221,6 +1302,15 @@ class _ProductionDashboardScreenState
                         );
                       }
                     },
+                  ),
+
+                  ListTile(
+                    leading: const Icon(AppIcons.download),
+                    title: const Text('Check for Updates'),
+                    subtitle: const Text(
+                      'Check if a newer version is available',
+                    ),
+                    onTap: _handleCheckForUpdates,
                   ),
 
                   ListTile(
