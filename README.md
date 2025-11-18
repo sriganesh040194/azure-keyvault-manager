@@ -294,6 +294,12 @@ The application includes built-in health checks:
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
+## 👨‍💻 Author
+
+**Sriganesh Karuppannan**
+
+Vibe coded with passion for secure Azure Key Vault management. This application combines robust security practices with modern UI/UX design to make Azure Key Vault management accessible and safe.
+
 ## 🙏 Acknowledgments
 
 - [Flutter](https://flutter.dev/) - The UI framework

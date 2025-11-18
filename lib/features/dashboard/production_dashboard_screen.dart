@@ -22,10 +22,13 @@ class ProductionDashboardScreen extends ConsumerStatefulWidget {
     required this.keyVaultService,
   });
 
-  @override ConsumerState<ProductionDashboardScreen> createState() => _ProductionDashboardScreenState();
+  @override
+  ConsumerState<ProductionDashboardScreen> createState() =>
+      _ProductionDashboardScreenState();
 }
 
-class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardScreen> {
+class _ProductionDashboardScreenState
+    extends ConsumerState<ProductionDashboardScreen> {
   int _selectedIndex = 0;
   List<KeyVaultInfo>? _keyVaults;
   bool _isLoading = true;
@@ -35,7 +38,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
   bool _isLoadingSubscriptions = false;
   late UnifiedAzureCliService _unifiedCliService;
   late AuditService _auditService;
-  
+
   // Audit state
   List<AuditLogEntry> _auditLogs = [];
   AuditSummary? _auditSummary;
@@ -86,20 +89,20 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         widget.authService.getSubscriptions(),
         widget.authService.getCurrentSubscription(),
       ]);
-      
+
       final subscriptions = results[0] as List<Map<String, dynamic>>;
       final currentSub = results[1] as Map<String, dynamic>?;
-      
+
       if (mounted) {
         setState(() {
           _subscriptions = subscriptions;
           _currentSubscription = currentSub;
           _isLoadingSubscriptions = false;
         });
-        
+
         // Load Key Vaults after subscription info is loaded
         _loadKeyVaults();
-        
+
         // Log subscription selection
         _auditService.logOperation(
           operationName: 'Microsoft.Subscription/subscriptions/read',
@@ -111,7 +114,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
           clientIP: '192.168.1.100',
         );
       }
-      
+
       AppLogger.info('Loaded ${subscriptions.length} subscriptions');
     } catch (e) {
       AppLogger.error('Failed to load subscriptions', e);
@@ -133,14 +136,14 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
       });
 
       final vaults = await widget.keyVaultService.listKeyVaults();
-      
+
       if (mounted) {
         setState(() {
           _keyVaults = vaults;
           _isLoading = false;
         });
       }
-      
+
       // Log Key Vault list operation
       _auditService.logOperation(
         operationName: 'Microsoft.KeyVault/vaults/read',
@@ -152,7 +155,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         clientIP: '192.168.1.100',
         properties: {'vaultCount': vaults.length},
       );
-      
+
       AppLogger.info('Loaded ${vaults.length} Key Vaults');
     } catch (e) {
       AppLogger.error('Failed to load Key Vaults', e);
@@ -191,7 +194,8 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
 
   Future<void> _handleRefresh() async {
     await _loadSubscriptions();
-    if (_selectedIndex == 5) { // Audit tab
+    if (_selectedIndex == 5) {
+      // Audit tab
       await _loadAuditData();
     }
   }
@@ -253,10 +257,10 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
       }
     }
   }
-  
+
   void _showSubscriptionDetails() {
     if (_currentSubscription == null) return;
-    
+
     showDialog(
       context: context,
       builder: (context) => AlertDialog(
@@ -267,8 +271,14 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
           children: [
             _buildDetailRow('Name', _currentSubscription!['name'] ?? 'Unknown'),
             _buildDetailRow('ID', _currentSubscription!['id'] ?? 'Unknown'),
-            _buildDetailRow('State', _currentSubscription!['state'] ?? 'Unknown'),
-            _buildDetailRow('Tenant ID', _currentSubscription!['tenantId'] ?? 'Unknown'),
+            _buildDetailRow(
+              'State',
+              _currentSubscription!['state'] ?? 'Unknown',
+            ),
+            _buildDetailRow(
+              'Tenant ID',
+              _currentSubscription!['tenantId'] ?? 'Unknown',
+            ),
             if (_currentSubscription!['isDefault'] == true)
               const Padding(
                 padding: EdgeInsets.only(top: 8),
@@ -276,7 +286,10 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                   children: [
                     Icon(AppIcons.success, color: Colors.green, size: 16),
                     SizedBox(width: 8),
-                    Text('Default Subscription', style: TextStyle(color: Colors.green)),
+                    Text(
+                      'Default Subscription',
+                      style: TextStyle(color: Colors.green),
+                    ),
                   ],
                 ),
               ),
@@ -291,7 +304,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
       ),
     );
   }
-  
+
   Widget _buildDetailRow(String label, String value) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 4),
@@ -306,10 +319,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: const TextStyle(fontFamily: 'monospace'),
-            ),
+            child: Text(value, style: const TextStyle(fontFamily: 'monospace')),
           ),
         ],
       ),
@@ -321,20 +331,20 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
       setState(() {
         _isLoading = true;
       });
-      
+
       final success = await widget.authService.setSubscription(subscriptionId);
       if (success) {
         // Reload current subscription and Key Vaults
         final currentSub = await widget.authService.getCurrentSubscription();
-        
+
         if (mounted) {
           setState(() {
             _currentSubscription = currentSub;
           });
-          
+
           // Reload Key Vaults for the new subscription
           await _loadKeyVaults();
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Subscription changed successfully'),
@@ -347,7 +357,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
           setState(() {
             _isLoading = false;
           });
-          
+
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(
               content: Text('Failed to change subscription'),
@@ -362,7 +372,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         setState(() {
           _isLoading = false;
         });
-        
+
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text('Error changing subscription: $e'),
@@ -384,11 +394,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
               color: AppTheme.primaryColor,
               borderRadius: BorderRadius.circular(8),
             ),
-            child: const Icon(
-              AppIcons.keyVault,
-              color: Colors.white,
-              size: 20,
-            ),
+            child: const Icon(AppIcons.keyVault, color: Colors.white, size: 20),
           ),
           const SizedBox(width: AppSpacing.md),
           const Text('Azure Key Vault Manager'),
@@ -398,16 +404,16 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         // Subscription selector
         if (_subscriptions != null && _subscriptions!.isNotEmpty)
           _buildSubscriptionSelector(),
-        
+
         const SizedBox(width: AppSpacing.md),
-        
+
         // Refresh button
         IconButton(
           onPressed: _handleRefresh,
           icon: const Icon(AppIcons.refresh),
           tooltip: 'Refresh',
         ),
-        
+
         // User info
         if (widget.authService.currentUser != null)
           Padding(
@@ -440,16 +446,16 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                     ),
                     Text(
                       widget.authService.currentUser!.email,
-                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                        color: Colors.grey[600],
-                      ),
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                     ),
                   ],
                 ),
               ],
             ),
           ),
-        
+
         // Logout button
         IconButton(
           onPressed: _handleLogout,
@@ -468,7 +474,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         setState(() {
           _selectedIndex = index;
         });
-        
+
         // Load audit data when switching to audit tab
         if (index == 5 && _auditLogs.isEmpty && !_isLoadingAudit) {
           _loadAuditData();
@@ -489,7 +495,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
     if (_subscriptions == null || _subscriptions!.isEmpty) {
       return const SizedBox.shrink();
     }
-    
+
     return Container(
       constraints: const BoxConstraints(maxWidth: 300),
       child: DropdownButtonHideUnderline(
@@ -501,7 +507,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
             final name = subscription['name'] ?? 'Unknown';
             final id = subscription['id'] ?? '';
             final isDefault = subscription['isDefault'] == true;
-            
+
             return DropdownMenuItem<String>(
               value: id,
               child: Row(
@@ -567,9 +573,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
 
   Widget _buildContent() {
     if (_isLoading || _isLoadingSubscriptions) {
-      return const Center(
-        child: CircularProgressIndicator(),
-      );
+      return const Center(child: CircularProgressIndicator());
     }
 
     if (_error != null) {
@@ -577,11 +581,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              AppIcons.error,
-              size: 64,
-              color: AppTheme.errorColor,
-            ),
+            Icon(AppIcons.error, size: 64, color: AppTheme.errorColor),
             const SizedBox(height: AppSpacing.lg),
             Text(
               'Error loading data',
@@ -590,9 +590,9 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
             const SizedBox(height: AppSpacing.sm),
             Text(
               _error!,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Colors.grey[600],
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: AppSpacing.lg),
@@ -628,7 +628,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
 
   Widget _buildOverviewTab() {
     final vaultCount = _keyVaults?.length ?? 0;
-    
+
     return Padding(
       padding: const EdgeInsets.all(AppSpacing.lg),
       child: Column(
@@ -636,12 +636,12 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         children: [
           Text(
             'Dashboard Overview',
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: AppSpacing.lg),
-          
+
           // Stats cards
           Wrap(
             spacing: AppSpacing.lg,
@@ -663,8 +663,10 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
               ),
               _buildStatCard(
                 'Subscription',
-                _currentSubscription != null 
-                    ? (_currentSubscription!['name'] as String? ?? 'Unknown').split(' ').first
+                _currentSubscription != null
+                    ? (_currentSubscription!['name'] as String? ?? 'Unknown')
+                          .split(' ')
+                          .first
                     : 'N/A',
                 AppIcons.account,
                 Colors.blue,
@@ -672,55 +674,61 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
               ),
             ],
           ),
-          
+
           const SizedBox(height: AppSpacing.xl),
-          
+
           // Recent Key Vaults
           if (_keyVaults != null && _keyVaults!.isNotEmpty) ...[
             Text(
               'Recent Key Vaults',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: AppSpacing.lg),
-            
-            ..._keyVaults!.take(5).map((vault) => Card(
-              margin: const EdgeInsets.only(bottom: AppSpacing.md),
-              child: ListTile(
-                leading: Container(
-                  width: 40,
-                  height: 40,
-                  decoration: BoxDecoration(
-                    color: AppTheme.primaryColor.withOpacity(0.1),
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: const Icon(
-                    AppIcons.keyVault,
-                    color: AppTheme.primaryColor,
-                  ),
-                ),
-                title: Text(
-                  vault.name,
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text('${vault.location} • ${vault.resourceGroup}'),
-                trailing: IconButton(
-                  onPressed: () {
-                    Navigator.push(
-                      context,
-                      MaterialPageRoute(
-                        builder: (context) => KeyVaultDetailsScreen(
-                          vaultName: vault.name,
-                          cliService: _unifiedCliService,
+
+            ..._keyVaults!
+                .take(5)
+                .map(
+                  (vault) => Card(
+                    margin: const EdgeInsets.only(bottom: AppSpacing.md),
+                    child: ListTile(
+                      leading: Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: AppTheme.primaryColor.withOpacity(0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: const Icon(
+                          AppIcons.keyVault,
+                          color: AppTheme.primaryColor,
                         ),
                       ),
-                    );
-                  },
-                  icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                      title: Text(
+                        vault.name,
+                        style: const TextStyle(fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        '${vault.location} • ${vault.resourceGroup}',
+                      ),
+                      trailing: IconButton(
+                        onPressed: () {
+                          Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                              builder: (context) => KeyVaultDetailsScreen(
+                                vaultName: vault.name,
+                                cliService: _unifiedCliService,
+                              ),
+                            ),
+                          );
+                        },
+                        icon: const Icon(Icons.arrow_forward_ios, size: 16),
+                      ),
+                    ),
+                  ),
                 ),
-              ),
-            )),
           ],
         ],
       ),
@@ -748,7 +756,9 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                   // TODO: Implement create Key Vault
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(
-                      content: Text('Create Key Vault functionality coming soon'),
+                      content: Text(
+                        'Create Key Vault functionality coming soon',
+                      ),
                     ),
                   );
                 },
@@ -758,17 +768,13 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
             ],
           ),
           const SizedBox(height: AppSpacing.lg),
-          
+
           if (_keyVaults == null || _keyVaults!.isEmpty)
             Center(
               child: Column(
                 children: [
                   const SizedBox(height: 100),
-                  Icon(
-                    AppIcons.keyVault,
-                    size: 64,
-                    color: Colors.grey,
-                  ),
+                  Icon(AppIcons.keyVault, size: 64, color: Colors.grey),
                   const SizedBox(height: AppSpacing.lg),
                   Text(
                     'No Key Vaults found',
@@ -777,9 +783,9 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                   const SizedBox(height: AppSpacing.sm),
                   Text(
                     'Create your first Key Vault to get started',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: Colors.grey[600],
-                    ),
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -845,24 +851,15 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
   }
 
   Widget _buildSecretsTab() {
-    return SecretListScreen(
-      vaultName: '',
-      cliService: _unifiedCliService,
-    );
+    return SecretListScreen(vaultName: '', cliService: _unifiedCliService);
   }
 
   Widget _buildKeysTab() {
-    return KeyListScreen(
-      vaultName: '',
-      cliService: _unifiedCliService,
-    );
+    return KeyListScreen(vaultName: '', cliService: _unifiedCliService);
   }
 
   Widget _buildCertificatesTab() {
-    return CertificateListScreen(
-      vaultName: '',
-      cliService: _unifiedCliService,
-    );
+    return CertificateListScreen(vaultName: '', cliService: _unifiedCliService);
   }
 
   Widget _buildAuditTab() {
@@ -873,22 +870,22 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         children: [
           Text(
             'Audit & Activity',
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: AppSpacing.lg),
-          
+
           // Summary cards - show real audit data
           _buildAuditSummaryCards(),
-          
+
           const SizedBox(height: AppSpacing.xl),
-          
+
           // Audit controls and filters
           _buildAuditControls(),
-          
+
           const SizedBox(height: AppSpacing.lg),
-          
+
           // Recent activity section
           Expanded(
             child: Card(
@@ -903,13 +900,14 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                         const SizedBox(width: AppSpacing.sm),
                         Text(
                           'Recent Activity',
-                          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                            fontWeight: FontWeight.bold,
-                          ),
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.bold),
                         ),
                         const Spacer(),
                         OutlinedButton.icon(
-                          onPressed: _auditLogs.isNotEmpty ? _exportAuditLogs : null,
+                          onPressed: _auditLogs.isNotEmpty
+                              ? _exportAuditLogs
+                              : null,
                           icon: const Icon(AppIcons.download),
                           label: const Text('Export CSV'),
                         ),
@@ -922,10 +920,8 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                       ],
                     ),
                     const SizedBox(height: AppSpacing.lg),
-                    
-                    Expanded(
-                      child: _buildRealActivityList(),
-                    ),
+
+                    Expanded(child: _buildRealActivityList()),
                   ],
                 ),
               ),
@@ -939,9 +935,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
   Widget _buildAuditSummaryCards() {
     if (_isLoadingAudit) {
       return const Row(
-        children: [
-          Expanded(child: Center(child: CircularProgressIndicator())),
-        ],
+        children: [Expanded(child: Center(child: CircularProgressIndicator()))],
       );
     }
 
@@ -1051,7 +1045,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
           },
         ),
         const SizedBox(width: AppSpacing.md),
-        
+
         // Time range selector
         OutlinedButton.icon(
           onPressed: _selectTimeRange,
@@ -1075,7 +1069,9 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
               onTap: () {
                 setState(() {
                   _auditFilter = _auditFilter.copyWith(
-                    startTime: DateTime.now().subtract(const Duration(hours: 24)),
+                    startTime: DateTime.now().subtract(
+                      const Duration(hours: 24),
+                    ),
                     endTime: DateTime.now(),
                   );
                 });
@@ -1101,7 +1097,9 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
               onTap: () {
                 setState(() {
                   _auditFilter = _auditFilter.copyWith(
-                    startTime: DateTime.now().subtract(const Duration(days: 30)),
+                    startTime: DateTime.now().subtract(
+                      const Duration(days: 30),
+                    ),
                     endTime: DateTime.now(),
                   );
                 });
@@ -1123,10 +1121,10 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
 
   String _formatTimeRange() {
     if (_auditFilter.startTime == null) return 'All Time';
-    
+
     final now = DateTime.now();
     final diff = now.difference(_auditFilter.startTime!);
-    
+
     if (diff.inHours <= 24) {
       return 'Last 24 Hours';
     } else if (diff.inDays <= 7) {
@@ -1146,12 +1144,12 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         children: [
           Text(
             'Settings',
-            style: Theme.of(context).textTheme.headlineLarge?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineLarge?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: AppSpacing.lg),
-          
+
           Card(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
@@ -1165,21 +1163,36 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  
+
                   if (widget.authService.currentUser != null) ...[
-                    _buildSettingItem('Name', widget.authService.currentUser!.name),
-                    _buildSettingItem('Email', widget.authService.currentUser!.email),
-                    _buildSettingItem('Tenant ID', widget.authService.currentUser!.tenantId),
-                    _buildSettingItem('User ID', widget.authService.currentUser!.id),
-                    _buildSettingItem('Last Login', widget.authService.currentUser!.lastLogin.toString()),
+                    _buildSettingItem(
+                      'Name',
+                      widget.authService.currentUser!.name,
+                    ),
+                    _buildSettingItem(
+                      'Email',
+                      widget.authService.currentUser!.email,
+                    ),
+                    _buildSettingItem(
+                      'Tenant ID',
+                      widget.authService.currentUser!.tenantId,
+                    ),
+                    _buildSettingItem(
+                      'User ID',
+                      widget.authService.currentUser!.id,
+                    ),
+                    _buildSettingItem(
+                      'Last Login',
+                      widget.authService.currentUser!.lastLogin.toString(),
+                    ),
                   ],
                 ],
               ),
             ),
           ),
-          
+
           const SizedBox(height: AppSpacing.lg),
-          
+
           Card(
             child: Padding(
               padding: const EdgeInsets.all(AppSpacing.lg),
@@ -1193,11 +1206,13 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                     ),
                   ),
                   const SizedBox(height: AppSpacing.md),
-                  
+
                   ListTile(
                     leading: const Icon(AppIcons.refresh),
                     title: const Text('Refresh Session'),
-                    subtitle: const Text('Reload user information and permissions'),
+                    subtitle: const Text(
+                      'Reload user information and permissions',
+                    ),
                     onTap: () async {
                       await widget.authService.refreshSession();
                       if (mounted) {
@@ -1207,12 +1222,52 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                       }
                     },
                   ),
-                  
+
                   ListTile(
                     leading: Icon(AppIcons.logout, color: AppTheme.errorColor),
-                    title: Text('Sign Out', style: TextStyle(color: AppTheme.errorColor)),
+                    title: Text(
+                      'Sign Out',
+                      style: TextStyle(color: AppTheme.errorColor),
+                    ),
                     subtitle: const Text('End current session'),
                     onTap: _handleLogout,
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          const SizedBox(height: AppSpacing.lg),
+
+          Card(
+            child: Padding(
+              padding: const EdgeInsets.all(AppSpacing.lg),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    'About',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const SizedBox(height: AppSpacing.md),
+
+                  _buildSettingItem('Application', 'Azure Key Vault Manager'),
+                  _buildSettingItem('Version', '0.1.0'),
+                  _buildSettingItem('Developer', 'Sriganesh Karuppannan'),
+                  _buildSettingItem('License', 'Apache License 2.0'),
+                  _buildSettingItem(
+                    'Github',
+                    'https://github.com/sriganesh040194/azure-keyvault-manager/releases',
+                  ),
+
+                  const SizedBox(height: AppSpacing.md),
+                  Text(
+                    'Made with ❤️ by Sriganesh Karuppannan.',
+                    style: Theme.of(
+                      context,
+                    ).textTheme.bodySmall?.copyWith(color: Colors.grey[600]),
                   ),
                 ],
               ),
@@ -1236,25 +1291,21 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
               color: Colors.grey[100],
               borderRadius: BorderRadius.circular(60),
             ),
-            child: Icon(
-              icon,
-              size: 60,
-              color: Colors.grey,
-            ),
+            child: Icon(icon, size: 60, color: Colors.grey),
           ),
           const SizedBox(height: AppSpacing.lg),
           Text(
             title,
-            style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-              fontWeight: FontWeight.bold,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold),
           ),
           const SizedBox(height: AppSpacing.sm),
           Text(
             description,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Colors.grey[600],
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
         ],
@@ -1272,16 +1323,13 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
             width: 120,
             child: Text(
               '$label:',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.w600),
             ),
           ),
           Expanded(
-            child: Text(
-              value,
-              style: Theme.of(context).textTheme.bodyMedium,
-            ),
+            child: Text(value, style: Theme.of(context).textTheme.bodyMedium),
           ),
         ],
       ),
@@ -1307,11 +1355,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              AppIcons.error,
-              size: 64,
-              color: AppTheme.errorColor,
-            ),
+            Icon(AppIcons.error, size: 64, color: AppTheme.errorColor),
             const SizedBox(height: AppSpacing.md),
             Text(
               'Failed to load audit logs',
@@ -1339,26 +1383,16 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(
-              AppIcons.audit,
-              size: 64,
-              color: Colors.grey,
-            ),
+            Icon(AppIcons.audit, size: 64, color: Colors.grey),
             SizedBox(height: AppSpacing.lg),
             Text(
               'No audit logs found',
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 16,
-              ),
+              style: TextStyle(color: Colors.grey, fontSize: 16),
             ),
             SizedBox(height: AppSpacing.sm),
             Text(
               'Try adjusting the time range or filters',
-              style: TextStyle(
-                color: Colors.grey,
-                fontSize: 14,
-              ),
+              style: TextStyle(color: Colors.grey, fontSize: 14),
             ),
           ],
         ),
@@ -1391,10 +1425,16 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                         width: 48,
                         height: 48,
                         decoration: BoxDecoration(
-                          color: _getAuditStatusColor(entry.status).withValues(alpha: 0.1),
-                          borderRadius: BorderRadius.circular(AppBorderRadius.md),
+                          color: _getAuditStatusColor(
+                            entry.status,
+                          ).withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(
+                            AppBorderRadius.md,
+                          ),
                           border: Border.all(
-                            color: _getAuditStatusColor(entry.status).withValues(alpha: 0.2),
+                            color: _getAuditStatusColor(
+                              entry.status,
+                            ).withValues(alpha: 0.2),
                             width: 1.5,
                           ),
                         ),
@@ -1414,9 +1454,10 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                                 Expanded(
                                   child: Text(
                                     entry.displayName,
-                                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                      fontWeight: FontWeight.w600,
-                                    ),
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .titleMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
                                   ),
                                 ),
                                 if (entry.isKeyVaultRelated)
@@ -1426,10 +1467,16 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                                       vertical: 2,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: AppTheme.primaryColor.withValues(alpha: 0.1),
-                                      borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                                      color: AppTheme.primaryColor.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                      borderRadius: BorderRadius.circular(
+                                        AppBorderRadius.sm,
+                                      ),
                                       border: Border.all(
-                                        color: AppTheme.primaryColor.withValues(alpha: 0.3),
+                                        color: AppTheme.primaryColor.withValues(
+                                          alpha: 0.3,
+                                        ),
                                       ),
                                     ),
                                     child: Row(
@@ -1465,10 +1512,11 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                                 const SizedBox(width: 4),
                                 Text(
                                   _formatActivityTime(entry.time),
-                                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                    color: Colors.grey[600],
-                                    fontWeight: FontWeight.w500,
-                                  ),
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: Colors.grey[600],
+                                        fontWeight: FontWeight.w500,
+                                      ),
                                 ),
                                 const SizedBox(width: AppSpacing.md),
                                 Container(
@@ -1477,10 +1525,16 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                                     vertical: 3,
                                   ),
                                   decoration: BoxDecoration(
-                                    color: _getAuditStatusColor(entry.status).withValues(alpha: 0.1),
-                                    borderRadius: BorderRadius.circular(AppBorderRadius.sm),
+                                    color: _getAuditStatusColor(
+                                      entry.status,
+                                    ).withValues(alpha: 0.1),
+                                    borderRadius: BorderRadius.circular(
+                                      AppBorderRadius.sm,
+                                    ),
                                     border: Border.all(
-                                      color: _getAuditStatusColor(entry.status).withValues(alpha: 0.3),
+                                      color: _getAuditStatusColor(
+                                        entry.status,
+                                      ).withValues(alpha: 0.3),
                                     ),
                                   ),
                                   child: Text(
@@ -1499,9 +1553,9 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                       ),
                     ],
                   ),
-                  
+
                   const SizedBox(height: AppSpacing.md),
-                  
+
                   // Details section
                   Container(
                     padding: const EdgeInsets.all(AppSpacing.md),
@@ -1509,7 +1563,9 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                       color: Theme.of(context).colorScheme.surface,
                       borderRadius: BorderRadius.circular(AppBorderRadius.md),
                       border: Border.all(
-                        color: Theme.of(context).colorScheme.outline.withValues(alpha: 0.2),
+                        color: Theme.of(
+                          context,
+                        ).colorScheme.outline.withValues(alpha: 0.2),
                       ),
                     ),
                     child: Column(
@@ -1525,10 +1581,11 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                             const SizedBox(width: AppSpacing.sm),
                             Text(
                               'Resource:',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey[700],
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[700],
+                                  ),
                             ),
                             const SizedBox(width: AppSpacing.sm),
                             Expanded(
@@ -1540,9 +1597,9 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                             ),
                           ],
                         ),
-                        
+
                         const SizedBox(height: AppSpacing.sm),
-                        
+
                         // Category and operation row
                         Row(
                           children: [
@@ -1554,10 +1611,11 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                             const SizedBox(width: AppSpacing.sm),
                             Text(
                               'Category:',
-                              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                fontWeight: FontWeight.w600,
-                                color: Colors.grey[700],
-                              ),
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: Colors.grey[700],
+                                  ),
                             ),
                             const SizedBox(width: AppSpacing.sm),
                             Expanded(
@@ -1569,7 +1627,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                             ),
                           ],
                         ),
-                        
+
                         // User information if available
                         if (entry.callerInfo?.displayName != null) ...[
                           const SizedBox(height: AppSpacing.sm),
@@ -1583,10 +1641,11 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                               const SizedBox(width: AppSpacing.sm),
                               Text(
                                 'User:',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[700],
-                                ),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey[700],
+                                    ),
                               ),
                               const SizedBox(width: AppSpacing.sm),
                               Expanded(
@@ -1599,9 +1658,9 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                             ],
                           ),
                         ],
-                        
+
                         // IP Address if available and not local
-                        if (entry.callerInfo?.clientIP != null && 
+                        if (entry.callerInfo?.clientIP != null &&
                             entry.callerInfo!.clientIP != '127.0.0.1') ...[
                           const SizedBox(height: AppSpacing.sm),
                           Row(
@@ -1614,10 +1673,11 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                               const SizedBox(width: AppSpacing.sm),
                               Text(
                                 'IP:',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[700],
-                                ),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey[700],
+                                    ),
                               ),
                               const SizedBox(width: AppSpacing.sm),
                               Expanded(
@@ -1633,9 +1693,10 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                       ],
                     ),
                   ),
-                  
+
                   // Description or message if available
-                  if (entry.description != null && entry.description!.isNotEmpty) ...[
+                  if (entry.description != null &&
+                      entry.description!.isNotEmpty) ...[
                     const SizedBox(height: AppSpacing.md),
                     Container(
                       width: double.infinity,
@@ -1660,10 +1721,11 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                               const SizedBox(width: AppSpacing.sm),
                               Text(
                                 'Message:',
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                                  fontWeight: FontWeight.w600,
-                                  color: Colors.grey[700],
-                                ),
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.w600,
+                                      color: Colors.grey[700],
+                                    ),
                               ),
                             ],
                           ),
@@ -1678,7 +1740,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                       ),
                     ),
                   ],
-                  
+
                   // Footer with action hint
                   const SizedBox(height: AppSpacing.md),
                   Row(
@@ -1747,7 +1809,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
     if (entry.isKeyVaultRelated) {
       return AppIcons.keyVault;
     }
-    
+
     switch (entry.status) {
       case AuditStatus.success:
         return AppIcons.success;
@@ -1801,10 +1863,10 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
       return '${difference.inDays}d ago';
     }
   }
-  
+
   String _formatDetailedTime(DateTime time) {
     return '${time.day.toString().padLeft(2, '0')}/${time.month.toString().padLeft(2, '0')}/${time.year} '
-           '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}';
+        '${time.hour.toString().padLeft(2, '0')}:${time.minute.toString().padLeft(2, '0')}:${time.second.toString().padLeft(2, '0')}';
   }
 
   Widget _buildStatCard(
@@ -1831,11 +1893,7 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                     color: color.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(12),
                   ),
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 24,
-                  ),
+                  child: Icon(icon, color: color, size: 24),
                 ),
                 const SizedBox(height: AppSpacing.md),
                 Text(
@@ -1848,9 +1906,9 @@ class _ProductionDashboardScreenState extends ConsumerState<ProductionDashboardS
                 const SizedBox(height: AppSpacing.sm),
                 Text(
                   title,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: Colors.grey[600],
-                  ),
+                  style: Theme.of(
+                    context,
+                  ).textTheme.bodyMedium?.copyWith(color: Colors.grey[600]),
                 ),
               ],
             ),
