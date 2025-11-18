@@ -27,10 +27,12 @@ This is an open-source project distributed **free of charge** without the Apple 
 ### Required
 
 - **macOS**: 10.15 (Catalina) or later
+
   - Tested on: macOS 11 (Big Sur), 12 (Monterey), 13 (Ventura), 14 (Sonoma), 15 (Sequoia)
   - Works on both Intel and Apple Silicon (M1/M2/M3) Macs
 
 - **Azure CLI**: Version 2.0 or later
+
   - Required for all Azure operations
   - See installation instructions below
 
@@ -89,7 +91,7 @@ az account set --subscription "Your Subscription Name"
 
 ### Step 2: Download Azure Key Vault Manager
 
-1. Go to the [**Releases page**](https://github.com/yourusername/keyvault-ui/releases)
+1. Go to the [**Releases page**](https://github.com/yourusername/azure-keyvault-manager/releases)
 2. Download the latest **`AzureKeyVaultManager-v{VERSION}.dmg`** file
 3. Optionally, download the **`.sha256`** checksum file for verification
 
@@ -126,6 +128,7 @@ This is the most reliable method and works even on macOS Sequoia 15.1+.
 1. Open **Terminal** (Applications → Utilities → Terminal)
 
 2. Run this command:
+
    ```bash
    xattr -cr "/Applications/Azure Key Vault Manager.app"
    ```
@@ -142,7 +145,7 @@ Removes the quarantine attribute that tells macOS the file was downloaded from t
 **Steps:**
 
 1. Try to **open the app** from Applications (it will fail)
-2. You'll see: *"Azure Key Vault Manager cannot be opened because the developer cannot be verified"*
+2. You'll see: _"Azure Key Vault Manager cannot be opened because the developer cannot be verified"_
 3. Click **"Cancel"** or dismiss the dialog
 4. Open **System Settings** (or System Preferences on older macOS)
 5. Go to **Privacy & Security**
@@ -193,6 +196,7 @@ After bypassing Gatekeeper, launch the app:
 **Cause:** This is a false positive from macOS Gatekeeper for unsigned apps.
 
 **Solution:**
+
 ```bash
 # Remove quarantine flag
 xattr -cr "/Applications/Azure Key Vault Manager.app"
@@ -207,6 +211,7 @@ Then launch the app again.
 **Cause:** macOS Sequoia 15.1 bug when trying right-click → Open method.
 
 **Solution:** Use Method A (Remove Quarantine Flag) instead:
+
 ```bash
 xattr -cr "/Applications/Azure Key Vault Manager.app"
 ```
@@ -220,22 +225,26 @@ xattr -cr "/Applications/Azure Key Vault Manager.app"
 **Solution:**
 
 1. **Verify installation:**
+
    ```bash
    which az
    az --version
    ```
 
 2. **If not installed**, install via Homebrew:
+
    ```bash
    brew install azure-cli
    ```
 
 3. **If installed but not found**, the app checks these paths:
+
    - `/usr/local/bin/az`
    - `/opt/homebrew/bin/az` (Apple Silicon)
    - `/usr/bin/az`
 
 4. **Create a symlink** if Azure CLI is in a different location:
+
    ```bash
    # Find Azure CLI
    which az
@@ -251,6 +260,7 @@ xattr -cr "/Applications/Azure Key Vault Manager.app"
 **Cause:** You haven't logged into Azure CLI.
 
 **Solution:**
+
 ```bash
 # Login to Azure
 az login
@@ -268,11 +278,13 @@ az account show
 **Solution:**
 
 1. **Check Console.app for errors:**
+
    - Open **Console.app** (Applications → Utilities)
    - Filter for "Azure Key Vault Manager"
    - Look for error messages
 
 2. **Verify app signature:**
+
    ```bash
    codesign -vvv "/Applications/Azure Key Vault Manager.app"
    ```
@@ -291,11 +303,13 @@ az account show
 **Solution:**
 
 1. **Check your role assignment:**
+
    ```bash
    az role assignment list --assignee your-email@example.com
    ```
 
 2. **Required permissions:**
+
    - Key Vault Contributor (recommended)
    - Or specific Key Vault access policies
 
@@ -310,11 +324,13 @@ az account show
 **Solution:**
 
 1. **Verify Azure CLI connectivity:**
+
    ```bash
    az account show
    ```
 
 2. **Check required endpoints are accessible:**
+
    - `login.microsoftonline.com`
    - `management.azure.com`
    - `vault.azure.net`
@@ -351,14 +367,17 @@ rm -rf "$HOME/Library/Containers/com.espaceai.keyvault-manager"
 The app requires the following permissions:
 
 ✅ **Network Access** (`com.apple.security.network.client`)
+
 - **Why**: Communication with Azure APIs
 - **Scope**: `login.microsoftonline.com`, `management.azure.com`, `vault.azure.net`
 
 ✅ **File Access** (`com.apple.security.files.user-selected.read-write`)
+
 - **Why**: Import/export secrets, keys, certificates
 - **Scope**: Only files you explicitly select in file dialogs
 
 ✅ **Azure CLI Execution** (No App Sandbox)
+
 - **Why**: Execute Azure CLI commands for Key Vault operations
 - **Scope**: Only allow-listed Azure CLI commands (no arbitrary shell access)
 
@@ -384,19 +403,21 @@ The app requires the following permissions:
 If you want to verify the app hasn't been tampered with:
 
 1. **Check SHA256 hash** matches the official release:
+
    ```bash
    shasum -a 256 ~/Downloads/AzureKeyVaultManager-v*.dmg
    ```
 
 2. **Verify signature** (will show ad-hoc):
+
    ```bash
    codesign -dvvv "/Applications/Azure Key Vault Manager.app"
    ```
 
 3. **Build from source** (ultimate verification):
    ```bash
-   git clone https://github.com/yourusername/keyvault-ui
-   cd keyvault-ui
+   git clone https://github.com/yourusername/azure-keyvault-manager
+   cd azure-keyvault-manager
    ./scripts/build_macos_release.sh
    ```
 
@@ -416,8 +437,8 @@ If you prefer to build the app yourself:
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/keyvault-ui
-cd keyvault-ui
+git clone https://github.com/yourusername/azure-keyvault-manager
+cd azure-keyvault-manager
 
 # Install dependencies
 flutter pub get
@@ -520,4 +541,4 @@ Azure Key Vault Manager is licensed under the Apache License 2.0. See [LICENSE](
 
 ---
 
-**Need more help?** [Open an issue on GitHub](https://github.com/yourusername/keyvault-ui/issues)
+**Need more help?** [Open an issue on GitHub](https://github.com/yourusername/azure-keyvault-manager/issues)

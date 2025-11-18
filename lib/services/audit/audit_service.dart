@@ -15,13 +15,15 @@ class AuditService {
   }) async {
     try {
       AppLogger.info('Fetching application logs');
-      
+
       // Get real application logs from AppLogger
       final appLogs = AppLogger.getStoredLogs();
-      
+
       // Convert app logs to audit format
-      List<AuditLogEntry> auditEntries = appLogs.map((appLog) => _convertAppLogToAuditEntry(appLog)).toList();
-      
+      List<AuditLogEntry> auditEntries = appLogs
+          .map((appLog) => _convertAppLogToAuditEntry(appLog))
+          .toList();
+
       // Apply filtering if needed
       if (filter != null) {
         auditEntries = _applyClientSideFiltering(auditEntries, filter);
@@ -35,7 +37,9 @@ class AuditService {
         auditEntries = auditEntries.take(maxRecords).toList();
       }
 
-      AppLogger.info('Retrieved ${auditEntries.length} application log entries');
+      AppLogger.info(
+        'Retrieved ${auditEntries.length} application log entries',
+      );
       return auditEntries;
     } catch (e) {
       AppLogger.error('Failed to get application logs', e);
@@ -58,13 +62,23 @@ class AuditService {
     );
 
     final allLogs = await getAuditLogs(filter: filter, maxRecords: maxRecords);
-    
+
     // Filter for this specific Key Vault
-    return allLogs.where((log) => 
-      log.operationName.toLowerCase().contains(keyVaultName.toLowerCase()) ||
-      log.resourceName.toLowerCase().contains(keyVaultName.toLowerCase()) ||
-      (log.properties != null && log.properties.toString().toLowerCase().contains(keyVaultName.toLowerCase()))
-    ).toList();
+    return allLogs
+        .where(
+          (log) =>
+              log.operationName.toLowerCase().contains(
+                keyVaultName.toLowerCase(),
+              ) ||
+              log.resourceName.toLowerCase().contains(
+                keyVaultName.toLowerCase(),
+              ) ||
+              (log.properties != null &&
+                  log.properties.toString().toLowerCase().contains(
+                    keyVaultName.toLowerCase(),
+                  )),
+        )
+        .toList();
   }
 
   /// Get audit summary statistics
@@ -94,15 +108,17 @@ class AuditService {
     final now = DateTime.now();
     return AuditLogEntry(
       id: appLog.timestamp.millisecondsSinceEpoch.toString(),
-      operationName: 'Application.${appLog.category ?? 'General'}/${appLog.level}',
+      operationName:
+          'Application.${appLog.category ?? 'General'}/${appLog.level}',
       operationVersion: appLog.level,
       category: appLog.category ?? 'Application',
       resultType: _getResultTypeFromLevel(appLog.level),
       resultSignature: appLog.level,
       time: appLog.timestamp,
-      resourceId: '/applications/keyvault-ui/logs/${appLog.category ?? 'general'}',
+      resourceId:
+          '/applications/azure-keyvault-manager/logs/${appLog.category ?? 'general'}',
       resourceType: 'Application.Logs',
-      resourceGroup: 'keyvault-ui-app',
+      resourceGroup: 'azure-keyvault-manager-app',
       subscriptionId: 'local-application',
       tenantId: 'local-tenant',
       level: _getAuditLevelFromLogLevel(appLog.level),
@@ -162,7 +178,7 @@ class AuditService {
       'status': status.toString(),
       if (properties != null) ...properties,
     };
-    
+
     switch (status) {
       case AuditStatus.failed:
         AppLogger.error(message, details);
@@ -176,10 +192,8 @@ class AuditService {
     }
   }
 
-
-
   List<AuditLogEntry> _applyClientSideFiltering(
-    List<AuditLogEntry> entries, 
+    List<AuditLogEntry> entries,
     AuditFilter filter,
   ) {
     var filtered = entries;
@@ -187,39 +201,54 @@ class AuditService {
     // Filter by search query
     if (filter.searchQuery != null && filter.searchQuery!.isNotEmpty) {
       final query = filter.searchQuery!.toLowerCase();
-      filtered = filtered.where((entry) =>
-        entry.operationName.toLowerCase().contains(query) ||
-        entry.resourceName.toLowerCase().contains(query) ||
-        entry.resourceGroup.toLowerCase().contains(query) ||
-        entry.callerInfo?.displayName.toLowerCase().contains(query) == true ||
-        (entry.description?.toLowerCase().contains(query) ?? false)
-      ).toList();
+      filtered = filtered
+          .where(
+            (entry) =>
+                entry.operationName.toLowerCase().contains(query) ||
+                entry.resourceName.toLowerCase().contains(query) ||
+                entry.resourceGroup.toLowerCase().contains(query) ||
+                entry.callerInfo?.displayName.toLowerCase().contains(query) ==
+                    true ||
+                (entry.description?.toLowerCase().contains(query) ?? false),
+          )
+          .toList();
     }
 
     // Filter by severity
     if (filter.severity != null) {
-      filtered = filtered.where((entry) => entry.severity == filter.severity).toList();
+      filtered = filtered
+          .where((entry) => entry.severity == filter.severity)
+          .toList();
     }
 
     // Filter by status
     if (filter.status != null) {
-      filtered = filtered.where((entry) => entry.status == filter.status).toList();
+      filtered = filtered
+          .where((entry) => entry.status == filter.status)
+          .toList();
     }
 
     // Filter by Key Vault operations only
     if (filter.keyVaultOnly) {
-      filtered = filtered.where((entry) => 
-        entry.isKeyVaultRelated || 
-        entry.category.toLowerCase().contains('keyvault') ||
-        entry.operationName.toLowerCase().contains('keyvault')
-      ).toList();
+      filtered = filtered
+          .where(
+            (entry) =>
+                entry.isKeyVaultRelated ||
+                entry.category.toLowerCase().contains('keyvault') ||
+                entry.operationName.toLowerCase().contains('keyvault'),
+          )
+          .toList();
     }
 
     // Filter by operation name
     if (filter.operationName != null && filter.operationName!.isNotEmpty) {
-      filtered = filtered.where((entry) => 
-        entry.operationName.toLowerCase().contains(filter.operationName!.toLowerCase())
-      ).toList();
+      filtered = filtered
+          .where(
+            (entry) => entry.operationName.toLowerCase().contains(
+              filter.operationName!.toLowerCase(),
+            ),
+          )
+          .toList();
     }
 
     return filtered;
@@ -228,10 +257,12 @@ class AuditService {
   /// Export audit logs to CSV format
   Future<String> exportAuditLogsToCSV(List<AuditLogEntry> entries) async {
     final buffer = StringBuffer();
-    
+
     // CSV header
-    buffer.writeln('Timestamp,Operation,Resource,Resource Group,Status,Level,User,IP Address');
-    
+    buffer.writeln(
+      'Timestamp,Operation,Resource,Resource Group,Status,Level,User,IP Address',
+    );
+
     // CSV rows
     for (final entry in entries) {
       final timestamp = entry.time.toIso8601String();
@@ -242,10 +273,12 @@ class AuditService {
       final level = _escapeCsvField(entry.level);
       final user = _escapeCsvField(entry.callerInfo?.displayName ?? 'Unknown');
       final ip = _escapeCsvField(entry.callerInfo?.clientIP ?? '');
-      
-      buffer.writeln('$timestamp,$operation,$resource,$resourceGroup,$status,$level,$user,$ip');
+
+      buffer.writeln(
+        '$timestamp,$operation,$resource,$resourceGroup,$status,$level,$user,$ip',
+      );
     }
-    
+
     return buffer.toString();
   }
 

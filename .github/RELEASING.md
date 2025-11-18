@@ -20,6 +20,7 @@ Before starting the release process, ensure you have:
 ### Step 1: Update Version Number
 
 1. Edit `pubspec.yaml`:
+
    ```yaml
    version: X.Y.Z+BUILD_NUMBER
    ```
@@ -50,6 +51,7 @@ Run the build script:
 ```
 
 The script will:
+
 1. Clean previous builds
 2. Install dependencies
 3. Build the macOS app
@@ -108,7 +110,7 @@ gh release edit vX.Y.Z --draft=false
 
 #### Option B: Using GitHub Web Interface
 
-1. Go to `https://github.com/yourusername/keyvault-ui/releases/new`
+1. Go to `https://github.com/yourusername/azure-keyvault-manager/releases/new`
 2. Select tag: `vX.Y.Z`
 3. Release title: `Azure Key Vault Manager vX.Y.Z`
 4. Paste your prepared release notes
@@ -133,6 +135,7 @@ After publishing:
 ### Step 7: Announce Release (Optional)
 
 If applicable:
+
 - [ ] Update project website
 - [ ] Post announcement on social media
 - [ ] Notify users via email/Slack/Discord
@@ -145,6 +148,7 @@ If applicable:
 **Issue**: Script exits with error during build
 
 **Solutions**:
+
 - Check `flutter doctor` for Flutter/Dart issues
 - Ensure Xcode command line tools are installed: `xcode-select --install`
 - Clean and retry: `flutter clean && ./scripts/build_macos_release.sh`
@@ -154,6 +158,7 @@ If applicable:
 **Issue**: `codesign` command fails
 
 **Solutions**:
+
 - Verify Xcode is installed
 - Check entitlements file exists: `macos/Runner/Release.entitlements`
 - Try manual signing: `codesign -s - -f --deep "build/macos/Build/Products/Release/Azure Key Vault Manager.app"`
@@ -163,6 +168,7 @@ If applicable:
 **Issue**: DMG not created or corrupted
 
 **Solutions**:
+
 - If using `create-dmg`, ensure it's installed: `npm install -g create-dmg`
 - Try the hdiutil fallback method (automatically used if create-dmg fails)
 - Check disk space: `df -h`
@@ -173,6 +179,7 @@ If applicable:
 **Issue**: Cannot upload files to GitHub
 
 **Solutions**:
+
 - Check file size (GitHub has 2GB limit per file)
 - Verify you have write permissions to the repository
 - If using `gh` CLI, ensure you're authenticated: `gh auth login`
@@ -255,6 +262,7 @@ dist/
 ### Version Numbering
 
 Follow [Semantic Versioning](https://semver.org/):
+
 - **MAJOR** (X): Breaking changes
 - **MINOR** (Y): New features, backwards compatible
 - **PATCH** (Z): Bug fixes, backwards compatible
@@ -288,6 +296,7 @@ If you need to rollback a release:
 ## Automation Opportunities (Future)
 
 Consider automating with GitHub Actions:
+
 - Trigger builds on tag push
 - Run tests before building
 - Upload artifacts automatically

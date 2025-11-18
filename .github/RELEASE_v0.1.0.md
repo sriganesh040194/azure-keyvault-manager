@@ -30,9 +30,9 @@ macOS blocks apps that aren't notarized by Apple. The command above is safe and 
 
 ### Main Application
 
-| File | Size | SHA256 Checksum |
-|------|------|-----------------|
-| [AzureKeyVaultManager-v0.1.0.dmg](https://github.com/sriganesh040194/keyvault-ui/releases/download/v0.1.0/AzureKeyVaultManager-v0.1.0.dmg) | TBD | `TBD` |
+| File                                                                                                                                                  | Size | SHA256 Checksum |
+| ----------------------------------------------------------------------------------------------------------------------------------------------------- | ---- | --------------- |
+| [AzureKeyVaultManager-v0.1.0.dmg](https://github.com/sriganesh040194/azure-keyvault-manager/releases/download/v0.1.0/AzureKeyVaultManager-v0.1.0.dmg) | TBD  | `TBD`           |
 
 ### Verification (Optional but Recommended)
 
@@ -87,10 +87,12 @@ This is the first public release of Azure Key Vault Manager - a secure, user-fri
 ### Required
 
 - **macOS**: 10.15 (Catalina) or later
+
   - Tested on macOS 11-15 (Big Sur through Sequoia)
   - Works on both Intel and Apple Silicon (M1/M2/M3/M4)
 
 - **Azure CLI**: Version 2.0 or later
+
   ```bash
   # Install via Homebrew
   brew install azure-cli
@@ -116,16 +118,19 @@ This is the first public release of Azure Key Vault Manager - a secure, user-fri
 After installation:
 
 1. **Ensure Azure CLI is installed**:
+
    ```bash
    az --version
    ```
 
 2. **Login to Azure**:
+
    ```bash
    az login
    ```
 
 3. **Verify your subscription**:
+
    ```bash
    az account show
    ```
@@ -156,8 +161,8 @@ If you prefer to build the app yourself:
 
 ```bash
 # Clone the repository
-git clone https://github.com/sriganesh040194/keyvault-ui
-cd keyvault-ui
+git clone https://github.com/sriganesh040194/azure-keyvault-manager
+cd azure-keyvault-manager
 
 # Checkout this release
 git checkout v0.1.0
@@ -180,6 +185,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for detailed development setup.
 ### Added
 
 #### Core Features
+
 - Device code authentication flow using Azure CLI
 - Multiple authentication strategies for different environments (production, web, development)
 - Secure storage service with multi-platform support (macOS Keychain, SharedPreferences, IndexedDB)
@@ -190,6 +196,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for detailed development setup.
 - Key Vault selector component for easy vault switching
 
 #### Security Implementation
+
 - Input validator with 15+ validation methods
 - Command injection prevention with dangerous pattern detection
 - Allow-list of 25+ permitted Azure CLI commands
@@ -198,6 +205,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for detailed development setup.
 - Audit logging service for security events and activity tracking
 
 #### UI/UX Components
+
 - Material Design 3 theme with dark/light mode support
 - Responsive layout for desktop, tablet, and mobile
 - Loading states and progress indicators for all operations
@@ -208,6 +216,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for detailed development setup.
 - Empty state screens with helpful guidance
 
 #### Development Tools
+
 - Comprehensive unit tests for security components
 - Build scripts for macOS release packaging
 - Release template and releasing guide
@@ -217,6 +226,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for detailed development setup.
 ### Technical Details
 
 #### Dependencies
+
 - Flutter SDK 3.8.1+
 - Material Symbols Icons for modern iconography
 - Riverpod for state management
@@ -226,6 +236,7 @@ See [CONTRIBUTING.md](../CONTRIBUTING.md) for detailed development setup.
 - Process execution for Azure CLI integration
 
 #### Architecture
+
 - Feature-based module structure
 - Multi-strategy authentication pattern
 - Platform-aware CLI service abstraction
@@ -303,9 +314,9 @@ See the comprehensive [Installation Guide](../INSTALL.md) for more troubleshooti
 ### Getting Help
 
 - 📖 Check the [Installation Guide](../INSTALL.md)
-- 🐛 [Report a bug](https://github.com/sriganesh040194/keyvault-ui/issues/new?template=bug_report.md)
-- 💡 [Request a feature](https://github.com/sriganesh040194/keyvault-ui/issues/new?template=feature_request.md)
-- 💬 [Ask a question](https://github.com/sriganesh040194/keyvault-ui/discussions)
+- 🐛 [Report a bug](https://github.com/sriganesh040194/azure-keyvault-manager/issues/new?template=bug_report.md)
+- 💡 [Request a feature](https://github.com/sriganesh040194/azure-keyvault-manager/issues/new?template=feature_request.md)
+- 💬 [Ask a question](https://github.com/sriganesh040194/azure-keyvault-manager/discussions)
 
 ### Contributing
 
@@ -324,6 +335,7 @@ See [LICENSE](../LICENSE) for the full license text.
 ## 🙏 Acknowledgments
 
 Built with:
+
 - [Flutter](https://flutter.dev/) - UI framework
 - [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/) - Azure command-line interface
 - [Material Design 3](https://m3.material.io/) - Design system
@@ -338,13 +350,14 @@ Built with:
 - **Platform**: macOS 10.15+
 - **Architecture**: Universal (Intel + Apple Silicon)
 - **Signing**: Ad-hoc (unsigned by Apple Developer ID)
-- **Source Code**: [View on GitHub](https://github.com/sriganesh040194/keyvault-ui/tree/v0.1.0)
+- **Source Code**: [View on GitHub](https://github.com/sriganesh040194/azure-keyvault-manager/tree/v0.1.0)
 
 ---
 
 **Thank you for using Azure Key Vault Manager!** 🎉
 
 If you find this project useful, please consider:
+
 - ⭐ Starring the repository
 - 🐛 Reporting issues you encounter
 - 💡 Suggesting improvements
@@ -353,4 +366,4 @@ If you find this project useful, please consider:
 
 ---
 
-*This is an open-source project maintained by the community. Not affiliated with Microsoft or Azure.*
+_This is an open-source project maintained by the community. Not affiliated with Microsoft or Azure._
