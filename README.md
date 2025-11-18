@@ -5,6 +5,7 @@ A secure Flutter web application that provides a user-friendly interface for man
 ## 🚀 Features
 
 ### Core Features
+
 - **CLI Authentication**: Uses your existing Azure CLI credentials - no app registration required
 - **Key Vault Management**: Complete CRUD operations for Azure Key Vaults
 - **Secrets Management**: Create, view, update, and delete secrets securely
@@ -13,6 +14,7 @@ A secure Flutter web application that provides a user-friendly interface for man
 - **Audit Logging**: Comprehensive activity tracking and security event logging
 
 ### Security Features
+
 - **Input Validation**: Comprehensive validation and sanitization of all user inputs
 - **Command Injection Prevention**: Secure Azure CLI command execution with allow-lists
 - **Secure Storage**: Encrypted local storage for session information
@@ -21,6 +23,7 @@ A secure Flutter web application that provides a user-friendly interface for man
 - **Permission Validation**: Automatic validation of Key Vault access permissions
 
 ### UI/UX Features
+
 - **Material Design 3**: Modern, responsive design following Google's latest design system
 - **Responsive Layout**: Works seamlessly on desktop, tablet, and mobile browsers
 - **Dark/Light Theme**: Automatic theme switching based on system preferences
@@ -28,17 +31,43 @@ A secure Flutter web application that provides a user-friendly interface for man
 - **Error Handling**: User-friendly error messages and recovery options
 - **Real-time Updates**: Live status updates for long-running operations
 
+## 📥 Installation (macOS Desktop App)
+
+### Quick Install for macOS Users
+
+Azure Key Vault Manager is available as a native macOS application.
+
+⚠️ **Important:** This app is not notarized by Apple (requires $99/year Developer Program). It's completely safe - the code is open source and available for inspection.
+
+**Installation Steps:**
+
+1. **Download** the latest DMG from [Releases](https://github.com/yourusername/azure-keyvault-manager/releases)
+2. **Open DMG** and drag app to Applications folder
+3. **Bypass Gatekeeper** by running this command:
+   ```bash
+   xattr -cr "/Applications/Azure Key Vault Manager.app"
+   ```
+4. **Launch** the app from Applications
+
+**Why this step?** Since we distribute this app free without Apple Developer Program membership, macOS can't verify it automatically. The command above tells macOS to trust the app.
+
+📖 **Detailed installation guide:** See [INSTALL.md](INSTALL.md) for comprehensive instructions, troubleshooting, and security information.
+
+---
+
 ## 📋 Prerequisites
 
 Before setting up the application, ensure you have the following installed:
 
 ### Required Software
+
 - [Flutter SDK](https://flutter.dev/docs/get-started/install) (latest stable version)
 - [Dart SDK](https://dart.dev/get-dart) (included with Flutter)
 - [Azure CLI](https://docs.microsoft.com/en-us/cli/azure/install-azure-cli) (version 2.0 or later)
 - A modern web browser (Chrome, Firefox, Safari, or Edge)
 
 ### Azure Requirements
+
 - Azure subscription with appropriate permissions
 - Key Vault Contributor role or higher on target subscriptions/resource groups
 - Azure CLI installed and authenticated on your system
@@ -46,12 +75,14 @@ Before setting up the application, ensure you have the following installed:
 ## 🛠️ Installation and Setup
 
 ### 1. Clone the Repository
+
 ```bash
 git clone <repository-url>
-cd keyvault-ui
+cd azure-keyvault-manager
 ```
 
 ### 2. Install Dependencies
+
 ```bash
 flutter pub get
 ```
@@ -85,6 +116,7 @@ dart run build_runner build --delete-conflicting-outputs
 ## 🚀 Running the Application
 
 ### Development Mode
+
 ```bash
 # Start the development server
 flutter run -d chrome --web-port 8080
@@ -94,6 +126,7 @@ flutter run -d chrome --web-port 8080 --hot
 ```
 
 ### Production Build
+
 ```bash
 # Build for production
 flutter build web
@@ -108,6 +141,7 @@ The application will be available at `http://localhost:8080`
 ## 🧪 Testing
 
 ### Run Unit Tests
+
 ```bash
 # Run all tests
 flutter test
@@ -121,6 +155,7 @@ flutter test --coverage
 ```
 
 ### Run Integration Tests
+
 ```bash
 # Run integration tests (ensure Azure CLI is set up)
 flutter test integration_test/
@@ -160,21 +195,25 @@ docs/                              # Additional documentation
 ## 🔐 Security Considerations
 
 ### Authentication Security
+
 - **CLI Integration**: Uses existing Azure CLI authentication - no additional tokens required
 - **Session Management**: Automatic session validation and timeout handling
 - **Secure Transmission**: All CLI operations use Azure's secure authentication
 
 ### Input Security
+
 - **Validation**: All user inputs are validated before processing
 - **Sanitization**: Command injection prevention through input sanitization
 - **Allow-lists**: Only pre-approved Azure CLI commands are executed
 
 ### Data Security
+
 - **Output Redaction**: Sensitive information is automatically redacted from logs and UI
 - **Secure Logging**: Security events are logged separately with appropriate detail levels
 - **Memory Protection**: Sensitive data is cleared from memory when no longer needed
 
 ### Network Security
+
 - **HTTPS Only**: All network communications use HTTPS
 - **CORS Protection**: Proper Cross-Origin Resource Sharing configuration
 - **Token Validation**: JWT tokens are properly validated and verified
@@ -184,6 +223,7 @@ docs/                              # Additional documentation
 The application currently supports the following Azure CLI operations:
 
 ### Key Vault Operations
+
 - `az keyvault list` - List Key Vaults
 - `az keyvault create` - Create new Key Vault
 - `az keyvault delete` - Delete Key Vault
@@ -191,22 +231,26 @@ The application currently supports the following Azure CLI operations:
 - `az keyvault update` - Update Key Vault properties
 
 ### Secret Operations
+
 - `az keyvault secret list` - List secrets in a Key Vault
 - `az keyvault secret show` - Get secret details
 - `az keyvault secret set` - Create or update a secret
 - `az keyvault secret delete` - Delete a secret
 
 ### Key Operations (Coming Soon)
+
 - `az keyvault key list` - List keys
 - `az keyvault key create` - Create new key
 - `az keyvault key delete` - Delete key
 
 ### Certificate Operations (Coming Soon)
+
 - `az keyvault certificate list` - List certificates
 - `az keyvault certificate create` - Create certificate
 - `az keyvault certificate delete` - Delete certificate
 
 ### Access Policy Operations (Coming Soon)
+
 - `az keyvault set-policy` - Set access policies
 - `az keyvault delete-policy` - Delete access policies
 
@@ -215,14 +259,17 @@ The application currently supports the following Azure CLI operations:
 ### Common Issues
 
 #### Authentication Issues
+
 - **Problem**: "Azure CLI not authenticated"
 - **Solution**: Run `az login` and ensure you're signed in to the correct tenant
 
 #### Permission Issues
+
 - **Problem**: "Insufficient permissions to access Key Vault"
 - **Solution**: Ensure your account has Key Vault Contributor role or appropriate access policies
 
 #### CLI Issues
+
 - **Problem**: "Azure CLI not found"
 - **Solution**: Install Azure CLI from the official Microsoft documentation
 - **Problem**: "Azure CLI command failed"
@@ -268,7 +315,13 @@ The application includes built-in health checks:
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+
+## 👨‍💻 Author
+
+**Sriganesh Karuppannan**
+
+Vibe coded with passion for secure Azure Key Vault management. This application combines robust security practices with modern UI/UX design to make Azure Key Vault management accessible and safe.
 
 ## 🙏 Acknowledgments
 

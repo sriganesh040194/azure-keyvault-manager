@@ -8,7 +8,11 @@ import 'features/dashboard/production_dashboard_screen.dart';
 import 'features/platform/web_platform_notice_screen.dart';
 import 'services/azure_cli/platform_azure_cli_service.dart';
 import 'services/keyvault/keyvault_service.dart';
+import 'services/update/update_service.dart';
+import 'services/update/update_storage.dart';
+import 'shared/dialogs/update_available_dialog.dart';
 import 'shared/widgets/app_theme.dart';
+import 'shared/constants/app_constants.dart';
 import 'core/logging/app_logger.dart';
 
 void main() {
@@ -51,6 +55,9 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
   late final UnifiedAzureCliService _cliService;
   late final AzureCliAuthService _authService;
   late final KeyVaultService _keyVaultService;
+  late final UpdateService _updateService;
+  late final UpdateStorage _updateStorage;
+  bool _hasCheckedForUpdates = false;
 
   @override
   void initState() {
@@ -58,6 +65,11 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
     _cliService = UnifiedAzureCliService();
     _authService = AzureCliAuthService(_cliService);
     _keyVaultService = KeyVaultService(_cliService);
+    _updateService = UpdateService(
+      githubOwner: AppConstants.githubOwner,
+      githubRepo: AppConstants.githubRepo,
+    );
+    _updateStorage = UpdateStorage();
   }
 
   @override
@@ -72,6 +84,12 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
       stream: _authService.authStateStream,
       builder: (context, snapshot) {
         final authState = snapshot.data ?? AuthState.initial;
+
+        // Check for updates once when authenticated
+        if (authState == AuthState.authenticated && !_hasCheckedForUpdates) {
+          _hasCheckedForUpdates = true;
+          _checkForUpdates(context);
+        }
 
         switch (authState) {
           case AuthState.initial:
@@ -98,5 +116,51 @@ class _AuthWrapperState extends ConsumerState<AuthWrapper> {
         }
       },
     );
+  }
+
+  /// Checks for app updates in the background
+  Future<void> _checkForUpdates(BuildContext context) async {
+    try {
+      AppLogger.info('Checking for app updates...');
+
+      final result = await _updateService.checkForUpdates();
+
+      if (!mounted) return;
+
+      if (result.updateAvailable && result.updateInfo != null) {
+        // Check if user has skipped this version
+        final hasSkipped = await _updateStorage.hasSkippedVersion(
+          result.updateInfo!.version,
+        );
+
+        if (hasSkipped) {
+          AppLogger.info(
+            'Update ${result.updateInfo!.version} available but user has skipped it',
+          );
+          return;
+        }
+
+        // Show update dialog
+        AppLogger.info('Showing update dialog for version ${result.updateInfo!.version}');
+
+        // Use Future.delayed to avoid showing dialog during build
+        Future.delayed(const Duration(milliseconds: 500), () {
+          if (mounted) {
+            showUpdateAvailableDialog(
+              context: context,
+              updateInfo: result.updateInfo!,
+              currentVersion: result.currentVersion,
+            );
+          }
+        });
+      } else if (result.error != null) {
+        AppLogger.warning('Update check failed: ${result.error}');
+      } else {
+        AppLogger.info('App is up to date');
+      }
+    } catch (e) {
+      AppLogger.error('Error checking for updates: $e');
+      // Silently fail - don't interrupt user experience
+    }
   }
 }

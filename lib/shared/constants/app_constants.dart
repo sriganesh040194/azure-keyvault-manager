@@ -1,6 +1,10 @@
 class AppConstants {
   static const String appName = 'Azure Key Vault Manager';
-  static const String appVersion = '1.0.0';
+  static const String appVersion = '0.1.0'; // Matches pubspec.yaml
+
+  // GitHub Repository (for update checks)
+  static const String githubOwner = 'sriganesh040194'; // TODO: Update with your GitHub username
+  static const String githubRepo = 'azure-keyvault-manager'; // TODO: Update with your repo name
 
   // Storage Keys
   static const String userInfoKey = 'user_info';
