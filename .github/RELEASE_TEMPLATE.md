@@ -16,7 +16,7 @@
 
 ### ⚠️ Important Security Notice
 
-This application is **not signed with an Apple Developer ID** or notarized by Apple. This is an open-source project distributed free without the Apple Developer Program membership ($99/year).
+This application is **not signed with an Apple Developer ID** or notarized by Apple. As an open-source project, the app is distributed without Apple code signing.
 
 **The app is completely safe** - all source code is publicly available for inspection on GitHub.
 
@@ -32,7 +32,7 @@ This application is **not signed with an Apple Developer ID** or notarized by Ap
 
 ### Why Do I Need to Bypass Gatekeeper?
 
-macOS blocks apps that aren't notarized by Apple. Since this is a free, open-source project, we don't have Apple Developer Program membership. The command above is safe and simply tells macOS to trust this app.
+macOS blocks apps that aren't notarized by Apple. The command above is safe and simply tells macOS to trust this app.
 
 📖 **Need help?** See the detailed [Installation Guide](../INSTALL.md) for troubleshooting and more information.
 
